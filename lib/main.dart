@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/digital_ledger_screen.dart';
+import 'screens/inventory_dashboard_screen.dart';
 import 'screens/voucher_scanner_screen.dart';
 
 void main() {
@@ -59,13 +60,26 @@ class ShopkeeperDashboard extends StatelessWidget {
               _DashboardCard(
                 icon: Icons.qr_code_scanner,
                 label: 'Scan Farmer QR',
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  final result = await Navigator.push<String>(
                     context,
                     MaterialPageRoute(
                       builder: (_) => const VoucherScannerScreen(),
                     ),
                   );
+                  // Guard against using context after an async gap
+                  if (!context.mounted) return;
+                  if (result != null && result.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DigitalLedgerScreen(
+                          preFilledVoucherCode: result, // FIXED LINE
+                          isVoucherApplied: true,
+                        ),
+                      ),
+                    );
+                  }
                 },
               ),
               const SizedBox(height: 16),
@@ -86,7 +100,12 @@ class ShopkeeperDashboard extends StatelessWidget {
                 icon: Icons.inventory_2_rounded,
                 label: 'Inventory Dashboard',
                 onTap: () {
-                  // TODO: navigate to inventory
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const InventoryDashboardScreen(),
+                    ),
+                  );
                 },
               ),
             ],

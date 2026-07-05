@@ -7,12 +7,12 @@ import 'package:flutter/material.dart';
 class DigitalLedgerScreen extends StatefulWidget {
   const DigitalLedgerScreen({
     super.key,
-    this.preFilledFarmerId,
+    this.preFilledVoucherCode,
     this.isVoucherApplied = false,
   });
 
-  /// Farmer ID returned from the QR / manual voucher scan.
-  final String? preFilledFarmerId;
+  /// Voucher code returned from the QR / manual voucher scan.
+  final String? preFilledVoucherCode;
 
   /// When true, payment type is pre-set to "Cash/Voucher".
   final bool isVoucherApplied;
@@ -28,10 +28,8 @@ class _DigitalLedgerScreenState extends State<DigitalLedgerScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill Farmer ID if provided by scanner
-    _farmerIdController = TextEditingController(
-      text: widget.preFilledFarmerId ?? '',
-    );
+    // Initialize an empty controller so the shopkeeper can manually type the ID
+    _farmerIdController = TextEditingController();
     // Pre-select payment type based on voucher flag
     _paymentType = widget.isVoucherApplied ? 'Cash/Voucher' : 'Cash/Voucher';
   }
@@ -115,7 +113,28 @@ class _DigitalLedgerScreenState extends State<DigitalLedgerScreen> {
 
             const SizedBox(height: 28),
 
-            // ------- Farmer ID (pre-filled from scanner) -------
+            // ------- Verified Voucher Green Box -------
+            if (widget.preFilledVoucherCode != null && widget.preFilledVoucherCode!.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  border: Border.all(color: Colors.green),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '✅ Verified Voucher: ${widget.preFilledVoucherCode}',
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+
+            // ------- Farmer ID -------
             _LedgerTextField(
               label: 'Farmer ID',
               hint: 'e.g. FRM-001',
