@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/digital_ledger_screen.dart';
 import 'screens/inventory_dashboard_screen.dart';
+import 'screens/role_selector_screen.dart';
 import 'screens/voucher_scanner_screen.dart';
 
 void main() {
@@ -25,7 +26,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const ShopkeeperDashboard(),
+      home: const RoleSelectorScreen(),
     );
   }
 }
