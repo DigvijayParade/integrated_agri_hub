@@ -19,7 +19,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   final List<String> _states = ['Maharashtra', 'Punjab', 'Kerala'];
 
   final Map<String, List<String>> _cropsMap = {
-    'Maharashtra': ['Cotton', 'Soybean', 'Sugarcane', 'Jowar'],
+    'Maharashtra': ["Soybean", "Cotton", "Sugarcane", "Rice", "Wheat", "Tur (Pigeon Pea)", "Jowar", "Bajra", "Onions", "Grapes", "Mangoes"],
     'Punjab': ['Wheat', 'Rice', 'Maize', 'Mustard'],
     'Kerala': ['Coconut', 'Spices', 'Rubber', 'Coffee'],
   };
@@ -30,6 +30,16 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   bool _isConfirmPasswordVisible = false;
 
   void _sendOtp() {
+    if (_emailPhoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please enter a valid Phone Number or Email address first"),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text("Demo OTP sent! Use '1234' to verify."),

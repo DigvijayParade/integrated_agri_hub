@@ -25,6 +25,16 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
   bool _isConfirmPasswordVisible = false;
 
   void _sendOtp() {
+    if (_emailPhoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please enter a valid Phone Number or Email address first"),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text("Demo OTP sent! Use '1234' to verify."),
