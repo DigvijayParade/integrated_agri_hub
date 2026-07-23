@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:integrated_agri_hub/screens/welcome_screen.dart';
 import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
+import 'package:integrated_agri_hub/screens/education_feed_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 const _kGreen = Color(0xFF4A7C59);
 const _kDarkGreen = Color(0xFF2A5934);
@@ -28,7 +30,6 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
   List<String> _registeredCrops = ['Soybean', 'Sugarcane', 'Cotton'];
   final List<Quiz> _archivedQuizzes = [];
-  final List<EducationalAsset> _archivedDoses = [];
 
   void _addCoins(int amount, String reason) {
     if (!mounted) return;
@@ -47,6 +48,8 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
       case 0: return _DashboardView(
           greenCoins: _greenCoins,
           onShowProfile: () => _showProfileModal(context, _greenCoins, _transactions, _registeredCrops, (c) => setState(() => _registeredCrops = c)),
+          onAddCoins: _addCoins,
+          completedQuizzesCount: _archivedQuizzes.length,
         );
       case 1: return const _MarketView();
       case 2: return _QuizView(
@@ -56,11 +59,8 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           onArchive: (q) => setState(() => _archivedQuizzes.add(q)),
           onDeleteArchive: (q) => setState(() => _archivedQuizzes.remove(q)),
         );
-      case 3: return _EducationHubView(
-          registeredCrops: _registeredCrops,
-          archivedDoses: _archivedDoses,
-          onArchive: (d) => setState(() => _archivedDoses.add(d)),
-          onDeleteArchive: (d) => setState(() => _archivedDoses.remove(d)),
+      case 3: return EducationFeedScreen(
+          selectedCrops: _registeredCrops,
         );
       default: return const SizedBox.shrink();
     }
@@ -589,266 +589,67 @@ class _QuizViewState extends State<_QuizView> {
   }
 }
 
-// === EDUCATION HUB MODULE ===
-enum AssetType { article, video }
 
-class EducationalAsset {
+
+
+// === TASKS DATA MODEL ===
+class TaskItem {
+  final String id;
   final String title;
-  final String targetCrop;
-  final AssetType type;
-  final String content; 
-  final String duration;
-  
-  EducationalAsset({
+  final String description;
+  final int reward;
+  String status; // 'Not Started', 'Pending Verification', 'Approved'
+  String? mockImagePath;
+
+  TaskItem({
+    required this.id,
     required this.title,
-    required this.targetCrop,
-    required this.type,
-    required this.content,
-    required this.duration,
+    required this.description,
+    required this.reward,
+    this.status = 'Not Started',
+    this.mockImagePath,
   });
 }
-
-class _EducationHubView extends StatefulWidget {
-  final List<String> registeredCrops;
-  final List<EducationalAsset> archivedDoses;
-  final void Function(EducationalAsset) onArchive;
-  final void Function(EducationalAsset) onDeleteArchive;
-
-  const _EducationHubView({
-    required this.registeredCrops,
-    required this.archivedDoses,
-    required this.onArchive,
-    required this.onDeleteArchive,
-  });
-
-  @override
-  State<_EducationHubView> createState() => _EducationHubViewState();
-}
-
-class _EducationHubViewState extends State<_EducationHubView> {
-  final List<EducationalAsset> _allAssets = [
-    EducationalAsset(
-      title: 'Optimal Sowing Window',
-      targetCrop: 'Soybean',
-      type: AssetType.article,
-      content: 'Soybean requires a well-drained soil. The optimal sowing window is between mid-June and early July. Maintain seed rate of 30 kg per acre.',
-      duration: '2 min read',
-    ),
-    EducationalAsset(
-      title: 'Managing Whitefly Infestation',
-      targetCrop: 'Cotton',
-      type: AssetType.video,
-      content: 'Use neem-based biopesticides as the first line of defense against whiteflies.',
-      duration: '4 min video',
-    ),
-    EducationalAsset(
-      title: 'Water Management in Summer',
-      targetCrop: 'Sugarcane',
-      type: AssetType.article,
-      content: 'Drip irrigation significantly boosts sugarcane yields while saving up to 40% water.',
-      duration: '3 min read',
-    ),
-  ];
-
-  String? _playingTtsTitle;
-
-  void _toggleTts(String title) {
-    setState(() {
-      if (_playingTtsTitle == title) {
-        _playingTtsTitle = null; // Stop
-      } else {
-        _playingTtsTitle = title; // Play
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final availableAssets = _allAssets.where((a) => widget.registeredCrops.contains(a.targetCrop) && !widget.archivedDoses.contains(a)).toList();
-
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.school, color: _kGreen, size: 28),
-                SizedBox(width: 12),
-                Text('Daily Dose of Education', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-              ],
-            ),
-          ),
-          Expanded(
-            child: widget.registeredCrops.isEmpty 
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: const BoxDecoration(color: _kLightGreen, shape: BoxShape.circle),
-                        child: const Icon(Icons.school_outlined, size: 52, color: _kGreen),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text('Please add crops to your profile to unlock custom daily educational content.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.black54, height: 1.5)),
-                    ]),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    if (availableAssets.isNotEmpty) ...[
-                      const Text("Today's Lessons", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                      const SizedBox(height: 16),
-                      ...availableAssets.map((asset) => _buildAssetCard(asset, isArchive: false)),
-                      const SizedBox(height: 24),
-                    ],
-                    if (widget.archivedDoses.isNotEmpty) ...[
-                      const Text("Past Educational Doses", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                      const SizedBox(height: 16),
-                      ...widget.archivedDoses.map((asset) => _buildAssetCard(asset, isArchive: true)),
-                    ],
-                    if (availableAssets.isEmpty && widget.archivedDoses.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 40),
-                        child: Center(child: Text("No educational content available right now.", style: TextStyle(color: Colors.black54))),
-                      ),
-                  ],
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAssetCard(EducationalAsset asset, {required bool isArchive}) {
-    final isTtsPlaying = _playingTtsTitle == asset.title;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _kLightGreen, borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    Icon(asset.type == AssetType.video ? Icons.play_circle_filled : Icons.article, size: 12, color: _kGreen), const SizedBox(width: 4),
-                    Text(asset.targetCrop, style: const TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              if (isArchive)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                  onPressed: () => widget.onDeleteArchive(asset),
-                  constraints: const BoxConstraints(), padding: EdgeInsets.zero,
-                )
-              else
-                IconButton(
-                  icon: const Icon(Icons.bookmark_add_outlined, color: _kGreen, size: 20),
-                  onPressed: () => widget.onArchive(asset),
-                  constraints: const BoxConstraints(), padding: EdgeInsets.zero,
-                  tooltip: 'Archive for later',
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: Text(asset.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen))),
-              if (asset.type == AssetType.article)
-                IconButton(
-                  icon: Icon(isTtsPlaying ? Icons.volume_up : Icons.volume_up_outlined, color: isTtsPlaying ? Colors.orange : Colors.grey),
-                  onPressed: () => _toggleTts(asset.title),
-                  constraints: const BoxConstraints(), padding: EdgeInsets.zero,
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.timer, size: 14, color: Colors.black45), const SizedBox(width: 4),
-              Text(asset.duration, style: const TextStyle(fontSize: 13, color: Colors.black54)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          if (asset.type == AssetType.video) ...[
-            Container(
-              height: 180,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(Icons.play_circle_outline, color: Colors.white54, size: 64),
-                  Positioned(
-                    bottom: 10, right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                      child: const Text('YouTube', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-              child: Text(asset.content, style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.5)),
-            ),
-            if (isTtsPlaying)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('Playing audio...', style: TextStyle(color: Colors.orange.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 
 // === DASHBOARD VIEW ===
-class _DashboardView extends StatelessWidget {
+class _DashboardView extends StatefulWidget {
   final int greenCoins;
   final VoidCallback onShowProfile;
-  const _DashboardView({required this.greenCoins, required this.onShowProfile});
+  final void Function(int, String) onAddCoins;
+  final int completedQuizzesCount;
+
+  const _DashboardView({
+    required this.greenCoins,
+    required this.onShowProfile,
+    required this.onAddCoins,
+    required this.completedQuizzesCount,
+  });
+
+  @override
+  State<_DashboardView> createState() => _DashboardViewState();
+}
+
+class _DashboardViewState extends State<_DashboardView> {
+  final List<TaskItem> _tasks = [
+    TaskItem(
+      id: 'task_1',
+      title: 'Sow Soybean Seeds',
+      description: 'Plant soybean seeds with correct row spacing of 45cm.',
+      reward: 80,
+    ),
+    TaskItem(
+      id: 'task_2',
+      title: 'Apply Neem Fertilizer',
+      description: 'Spray organic neem pesticide on the cotton crop.',
+      reward: 120,
+    ),
+    TaskItem(
+      id: 'task_3',
+      title: 'Clean Drip Irrigation Filters',
+      description: 'Flush and clean the main APMC drip system filter.',
+      reward: 50,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -863,7 +664,7 @@ class _DashboardView extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 GestureDetector(
-                  onTap: onShowProfile,
+                  onTap: widget.onShowProfile,
                   child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -875,7 +676,7 @@ class _DashboardView extends StatelessWidget {
                   ),
                 ),
                 GestureDetector(
-                  onTap: onShowProfile,
+                  onTap: widget.onShowProfile,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
@@ -887,15 +688,13 @@ class _DashboardView extends StatelessWidget {
                     child: Row(children: [
                       const Icon(Icons.eco, color: _kGreen, size: 18),
                       const SizedBox(width: 6),
-                      Text('$greenCoins \u{1FAA9}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kDarkGreen)),
+                      Text('${widget.greenCoins} \u{1FAA9}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kDarkGreen)),
                     ]),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 28),
-
-
 
             // Quick Progress
             const Text('Quick Progress', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _kDarkGreen)),
@@ -906,11 +705,23 @@ class _DashboardView extends StatelessWidget {
               child: Row(children: [
                 _progressCard("Today's Streak", '5 Days', 'Keep it up! \u{1F525}', Icons.local_fire_department, Colors.orange),
                 const SizedBox(width: 14),
-                _progressCard('Quizzes Done', '12', '2 New available', Icons.assignment_turned_in, _kGreen),
+                _progressCard('Quizzes Done', '${12 + widget.completedQuizzesCount}', '2 New available', Icons.assignment_turned_in, _kGreen),
                 const SizedBox(width: 14),
-                _progressCard('Tasks Pending', '3', 'Complete by today', Icons.pending_actions, Colors.blueAccent),
+                _progressCard(
+                  'Tasks Pending', 
+                  '${_tasks.where((t) => t.status != 'Approved').length}', 
+                  'Complete for rewards', 
+                  Icons.pending_actions, 
+                  Colors.blueAccent,
+                ),
               ]),
             ),
+            const SizedBox(height: 28),
+
+            // Real-life Tasks Window
+            const Text('Real-Life Tasks & Rewards', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+            const SizedBox(height: 12),
+            ..._tasks.map((task) => _buildTaskCard(task)),
             const SizedBox(height: 28),
 
             // Subsidies
@@ -928,6 +739,160 @@ class _DashboardView extends StatelessWidget {
     );
   }
 
+  Widget _buildTaskCard(TaskItem task) {
+    Color statusColor = Colors.grey;
+    String statusText = 'Not Started';
+    IconData statusIcon = Icons.radio_button_unchecked;
+
+    if (task.status == 'Pending Verification') {
+      statusColor = Colors.orange;
+      statusText = 'Under Admin Review';
+      statusIcon = Icons.hourglass_empty;
+    } else if (task.status == 'Approved') {
+      statusColor = _kGreen;
+      statusText = 'Verified & Approved';
+      statusIcon = Icons.check_circle;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
+        border: Border.all(
+          color: task.status == 'Approved' 
+              ? _kGreen.withValues(alpha: 0.3) 
+              : (task.status == 'Pending Verification' ? Colors.orange.withValues(alpha: 0.3) : Colors.transparent),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                task.title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kDarkGreen),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Text('\u{1FAA9}', style: TextStyle(fontSize: 12)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '+${task.reward} Coins',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFFB8860B), fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            task.description,
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, color: statusColor, size: 16),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        statusText,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: statusColor, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (task.status == 'Not Started')
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      final XFile? photo = await ImagePicker().pickImage(
+                        source: ImageSource.camera,
+                        imageQuality: 80,
+                      );
+                      if (photo != null && mounted) {
+                        setState(() {
+                          task.status = 'Pending Verification';
+                          task.mockImagePath = photo.path;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Proof photo captured via Camera! Submitted for verification.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error accessing camera: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                  label: const Text('Capture Proof', style: TextStyle(color: Colors.white, fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kGreen,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                )
+              else if (task.status == 'Pending Verification')
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        task.status = 'Approved';
+                      });
+                      widget.onAddCoins(task.reward, 'Task Approved: ${task.title}');
+                    },
+                    icon: const Icon(Icons.gavel, size: 16, color: Colors.white),
+                    label: const Text('Approve (Mock)', style: TextStyle(color: Colors.white, fontSize: 11), overflow: TextOverflow.ellipsis),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                )
+              else
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.done_all, color: _kGreen, size: 16),
+                    SizedBox(width: 4),
+                    Text('Completed', style: TextStyle(color: _kGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _progressCard(String title, String value, String sub, IconData icon, Color color) {
     return Container(

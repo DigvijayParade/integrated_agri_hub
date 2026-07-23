@@ -20,8 +20,8 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
 
   final Map<String, List<String>> _cropsMap = {
     'Maharashtra': ["Soybean", "Cotton", "Sugarcane", "Rice", "Wheat", "Tur (Pigeon Pea)", "Jowar", "Bajra", "Onions", "Grapes", "Mangoes"],
-    'Punjab': ['Wheat', 'Rice', 'Maize', 'Mustard'],
-    'Kerala': ['Coconut', 'Spices', 'Rubber', 'Coffee'],
+    'Punjab': ['Wheat', 'Rice', 'Maize', 'Mustard', 'Cotton', 'Sugarcane', 'Barley', 'Sunflower'],
+    'Kerala': ['Coconut', 'Spices', 'Rubber', 'Coffee', 'Rice', 'Tapioca', 'Arecanut', 'Banana'],
   };
 
   final Set<String> _selectedCrops = {};
