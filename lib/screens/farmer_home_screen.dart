@@ -724,16 +724,19 @@ class _DashboardViewState extends State<_DashboardView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                GestureDetector(
-                  onTap: widget.onShowProfile,
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Namaste,', style: TextStyle(fontSize: 14, color: Colors.black54)),
-                      SizedBox(height: 2),
-                      Text('Rajesh Patil \u{1F33E}',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                    ],
+                Expanded(
+                  child: GestureDetector(
+                    onTap: widget.onShowProfile,
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Namaste,', style: TextStyle(fontSize: 14, color: Colors.black54)),
+                        SizedBox(height: 2),
+                        Text('Rajesh Patil \u{1F33E}',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen),
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
                   ),
                 ),
                 Row(
@@ -858,9 +861,12 @@ class _DashboardViewState extends State<_DashboardView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                task.title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kDarkGreen),
+              Expanded(
+                child: Text(
+                  task.title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kDarkGreen),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1692,8 +1698,11 @@ class _MarketViewState extends State<_MarketView> {
               child: const Icon(Icons.grass, size: 18, color: _kGreen),
             ),
             const SizedBox(width: 10),
-            Text(item['cropName'] as String,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kDarkGreen)),
+            Expanded(
+              child: Text(item['cropName'] as String,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kDarkGreen),
+                  overflow: TextOverflow.ellipsis),
+            ),
             if (item['isGovtVerified'] == true) ...[
               const SizedBox(width: 6),
               Container(

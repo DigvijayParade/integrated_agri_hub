@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:integrated_agri_hub/screens/welcome_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:integrated_agri_hub/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,10 +17,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Integrated Agri Hub',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4A7C59)),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: const WelcomeScreen(),
     );
   }

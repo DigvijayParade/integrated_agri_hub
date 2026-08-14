@@ -111,25 +111,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               ),
             ),
             const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Government Admin Portal',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+            Expanded(
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Government Admin Portal',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  'Dept. of Agriculture & Agri-Market Services',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white70,
+                  Text(
+                    'Dept. of Agriculture & Agri-Market Services',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -293,14 +297,18 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Live Mandi Rates (Interactive Editor)',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E3A8A),
+              Expanded(
+                child: const Text(
+                  'Live Mandi Rates (Interactive Editor)',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -400,6 +408,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                   Text(
                     '${item.mandiName} • ${item.district}',
                     style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -531,12 +540,14 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                     children: [
                       Icon(Icons.article_outlined, color: Color(0xFF1E3A8A)),
                       SizedBox(width: 8),
-                      Text(
-                        '1. Written Farming Guide (Text)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E3A8A),
+                      Expanded(
+                        child: Text(
+                          '1. Written Farming Guide (Text)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E3A8A),
+                          ),
                         ),
                       ),
                     ],
@@ -573,12 +584,14 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                     children: [
                       Icon(Icons.audiotrack, color: Color(0xFF1E3A8A)),
                       SizedBox(width: 8),
-                      Text(
-                        '2. Audio Guide File / URL',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E3A8A),
+                      Expanded(
+                        child: Text(
+                          '2. Audio Guide File / URL',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E3A8A),
+                          ),
                         ),
                       ),
                     ],
@@ -616,12 +629,14 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                     children: [
                       Icon(Icons.video_library, color: Colors.red),
                       SizedBox(width: 8),
-                      Text(
-                        '3. YouTube Video Link (Built-in Player Embed)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E3A8A),
+                      Expanded(
+                        child: Text(
+                          '3. YouTube Video Link (Built-in Player Embed)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E3A8A),
+                          ),
                         ),
                       ),
                     ],
@@ -743,7 +758,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
             children: [
               Icon(Icons.file_present, color: Color(0xFF1E3A8A)),
               SizedBox(width: 8),
-              Text('Import Market Rates CSV'),
+              Expanded(child: Text('Import Market Rates CSV')),
             ],
           ),
           content: Column(

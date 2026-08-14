@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:integrated_agri_hub/screens/role_selection_screen.dart';
 import 'package:integrated_agri_hub/screens/farmer_home_screen.dart';
 import 'package:integrated_agri_hub/screens/admin_home_screen.dart';
+import 'package:integrated_agri_hub/theme/app_theme.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -80,7 +81,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   Widget build(BuildContext context) {
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F0), // Warm cream background
+      backgroundColor: AppTheme.backgroundCream, // Warm cream background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -90,12 +91,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedLanguage,
-                icon: const Icon(Icons.language, color: Color(0xFF4A7C59)),
+                icon: const Icon(Icons.language, color: AppTheme.primaryGreen),
                 style: const TextStyle(
-                  color: Color(0xFF4A7C59),
+                  color: AppTheme.primaryGreen,
                   fontWeight: FontWeight.w600,
                 ),
-                dropdownColor: const Color(0xFFF9F6F0),
+                dropdownColor: AppTheme.backgroundCream,
                 items: _languages.map((String lang) {
                   return DropdownMenuItem<String>(
                     value: lang,
@@ -132,7 +133,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFF4A7C59).withValues(alpha: 0.3),
+                            color: AppTheme.primaryGreen.withValues(alpha: 0.3),
                             width: 2,
                           ),
                         ),
@@ -144,15 +145,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                Color(0xFF8DBA93), // Light sage
-                                Color(0xFF2A5934), // Richer forest green
+                                AppTheme.lightGreen,
+                                AppTheme.primaryGreen,
                               ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Color(0x332A5934),
+                                color: AppTheme.primaryGreen.withValues(alpha: 0.2),
                                 blurRadius: 12,
-                                offset: Offset(0, 6),
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
@@ -172,7 +173,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF2A5934),
+                          color: AppTheme.primaryGreen,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -183,14 +184,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         height: 52,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF5A926C), Color(0xFF386B45)],
+                            colors: [AppTheme.lightGreen, AppTheme.primaryGreen],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                           ),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF386B45).withValues(alpha: 0.3),
+                              color: AppTheme.primaryGreen.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -231,9 +232,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             );
                           },
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF4A7C59),
+                            foregroundColor: AppTheme.primaryGreen,
                             side: const BorderSide(
-                              color: Color(0xFF4A7C59),
+                              color: AppTheme.primaryGreen,
                               width: 2.5,
                             ),
                             shape: RoundedRectangleBorder(
@@ -311,10 +312,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               child: IconButton(
                 onPressed: () => _showInfoOverlay(context),
                 icon: const Icon(Icons.info_outline),
-                color: const Color(0xFF4A7C59),
+                color: AppTheme.primaryGreen,
                 iconSize: 28,
-                splashColor: const Color(0xFF4A7C59).withValues(alpha: 0.2),
-                highlightColor: const Color(0xFF4A7C59).withValues(alpha: 0.1),
+                splashColor: AppTheme.primaryGreen.withValues(alpha: 0.2),
+                highlightColor: AppTheme.primaryGreen.withValues(alpha: 0.1),
               ),
             ),
           ],
@@ -402,7 +403,7 @@ class _LoginOverlayState extends State<LoginOverlay> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF4A7C59),
+                  color: AppTheme.primaryGreen,
                 ),
               ),
               const SizedBox(height: 8),
@@ -424,7 +425,7 @@ class _LoginOverlayState extends State<LoginOverlay> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF4A7C59), width: 2),
+                    borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
                   ),
                 ),
                 validator: (value) {
@@ -458,7 +459,7 @@ class _LoginOverlayState extends State<LoginOverlay> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF4A7C59), width: 2),
+                    borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
                   ),
                 ),
                 validator: (value) {
@@ -475,7 +476,7 @@ class _LoginOverlayState extends State<LoginOverlay> {
                 child: ElevatedButton(
                   onPressed: _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A7C59),
+                    backgroundColor: AppTheme.primaryGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
