@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:integrated_agri_hub/screens/shopkeeper_home_screen.dart';
 
 class ShopkeeperSignupScreen extends StatefulWidget {
   const ShopkeeperSignupScreen({super.key});
@@ -56,12 +57,9 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
         );
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Shopkeeper Signup successful!"),
-          backgroundColor: Color(0xFF4A7C59),
-          behavior: SnackBarBehavior.floating,
-        ),
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const ShopkeeperHomeScreen()),
       );
     }
   }

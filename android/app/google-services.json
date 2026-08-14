@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "534872329554",
+    "project_id": "integrated-agri-hub",
+    "storage_bucket": "integrated-agri-hub.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:534872329554:android:a74c6ce1fedf8d2eed3e8b",
+        "android_client_info": {
+          "package_name": "com.example.integrated_agri_hub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOBvgB84u-S2FWO5tapYNh3fPFbj8-60c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

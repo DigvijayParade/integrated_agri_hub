@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:integrated_agri_hub/screens/welcome_screen.dart';
+import 'dart:async';
+import 'package:integrated_agri_hub/models/app_notification.dart';
+import 'package:integrated_agri_hub/screens/notifications_screen.dart';
 import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
 import 'package:integrated_agri_hub/screens/education_feed_screen.dart';
+import 'package:integrated_agri_hub/services/admin_service.dart';
 import 'package:image_picker/image_picker.dart';
 
 const _kGreen = Color(0xFF4A7C59);
@@ -31,6 +35,45 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   List<String> _registeredCrops = ['Soybean', 'Sugarcane', 'Cotton'];
   final List<Quiz> _archivedQuizzes = [];
 
+  List<AppNotification> _notifications = [
+    AppNotification(
+      title: "Market Price Spike! \u{1F4C8}",
+      message: "Wheat prices have increased by 5% in your local Mandi.",
+      category: "Market",
+      time: DateTime.now().subtract(const Duration(minutes: 15)),
+    ),
+    AppNotification(
+      title: "Watering Reminder \u{1F4A7}",
+      message: "It has been 3 days. Your Tomato crops need watering.",
+      category: "Schedule",
+      time: DateTime.now().subtract(const Duration(hours: 2)),
+    ),
+  ];
+  Timer? _notificationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted) {
+        setState(() {
+          _notifications.insert(0, AppNotification(
+            title: "Weather Alert \u{26C8}",
+            message: "Heavy rainfall expected in your area this evening. Please protect harvested crops.",
+            category: "Alert",
+            time: DateTime.now(),
+          ));
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
+  }
+
   void _addCoins(int amount, String reason) {
     if (!mounted) return;
     setState(() {
@@ -50,6 +93,20 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           onShowProfile: () => _showProfileModal(context, _greenCoins, _transactions, _registeredCrops, (c) => setState(() => _registeredCrops = c)),
           onAddCoins: _addCoins,
           completedQuizzesCount: _archivedQuizzes.length,
+          notifications: _notifications,
+          onOpenNotifications: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NotificationsScreen(
+                  notifications: _notifications,
+                  onNotificationsRead: () {
+                    setState(() {});
+                  },
+                ),
+              ),
+            );
+          },
         );
       case 1: return const _MarketView();
       case 2: return _QuizView(
@@ -97,7 +154,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home_outlined, Icons.home, 'Dashboard', 0),
+              _buildNavItem(Icons.home_outlined, Icons.home, 'Home', 0),
               _buildNavItem(Icons.storefront_outlined, Icons.storefront, 'Market', 1),
               const SizedBox(width: 56),
               _buildNavItem(Icons.quiz_outlined, Icons.quiz, 'Quiz', 2),
@@ -617,12 +674,16 @@ class _DashboardView extends StatefulWidget {
   final VoidCallback onShowProfile;
   final void Function(int, String) onAddCoins;
   final int completedQuizzesCount;
+  final List<AppNotification> notifications;
+  final VoidCallback onOpenNotifications;
 
   const _DashboardView({
     required this.greenCoins,
     required this.onShowProfile,
     required this.onAddCoins,
     required this.completedQuizzesCount,
+    required this.notifications,
+    required this.onOpenNotifications,
   });
 
   @override
@@ -675,22 +736,45 @@ class _DashboardViewState extends State<_DashboardView> {
                     ],
                   ),
                 ),
-                GestureDetector(
-                  onTap: widget.onShowProfile,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.6), width: 1.5),
-                      boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withValues(alpha: 0.2), blurRadius: 12)],
+                Row(
+                  children: [
+                    Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_outlined, color: _kDarkGreen, size: 28),
+                          onPressed: widget.onOpenNotifications,
+                        ),
+                        if (widget.notifications.any((n) => !n.isRead))
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                              constraints: const BoxConstraints(minWidth: 10, minHeight: 10),
+                            ),
+                          ),
+                      ],
                     ),
-                    child: Row(children: [
-                      const Icon(Icons.eco, color: _kGreen, size: 18),
-                      const SizedBox(width: 6),
-                      Text('${widget.greenCoins} \u{1FAA9}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kDarkGreen)),
-                    ]),
-                  ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: widget.onShowProfile,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.6), width: 1.5),
+                          boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withValues(alpha: 0.2), blurRadius: 12)],
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.eco, color: _kGreen, size: 18),
+                          const SizedBox(width: 6),
+                          Text('${widget.greenCoins} \u{1FAA9}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kDarkGreen)),
+                        ]),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1400,10 +1484,27 @@ class _MarketView extends StatefulWidget {
 class _MarketViewState extends State<_MarketView> {
   String _searchQuery = '';
   String? _selectedDistrict;
+  final AdminService _adminService = AdminService();
 
   final _districts = [
     "Ahmednagar", "Akola", "Amravati", "Chhatrapati Sambhajinagar", "Beed", "Bhandara", "Buldhana", "Chandrapur", "Dhule", "Gadchiroli", "Gondia", "Hingoli", "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban", "Nagpur", "Nanded", "Nandurbar", "Nashik", "Osmanabad", "Palghar", "Parbhani", "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _adminService.addListener(_onAdminUpdate);
+  }
+
+  @override
+  void dispose() {
+    _adminService.removeListener(_onAdminUpdate);
+    super.dispose();
+  }
+
+  void _onAdminUpdate() {
+    if (mounted) setState(() {});
+  }
 
   final _db = [
     {'cropName': 'Soybean',     'district': 'Latur',      'price': '\u20b94,600/Quintal', 'trend': true,  'lastUpdated': 'Updated Today'},
@@ -1425,11 +1526,30 @@ class _MarketViewState extends State<_MarketView> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _selectedDistrict == null
-        ? <Map<String, dynamic>>[]
-        : _db.where((e) =>
-            e['district'] == _selectedDistrict &&
-            (e['cropName'] as String).toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    // Collect live items from AdminService
+    final adminItems = _adminService.marketPrices.where((item) {
+      final matchesDist = _selectedDistrict == null || item.district == _selectedDistrict;
+      final matchesQuery = _searchQuery.isEmpty ||
+          item.cropName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          item.mandiName.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesDist && matchesQuery;
+    }).map((item) => {
+      'cropName': item.cropName,
+      'district': '${item.mandiName} (${item.district})',
+      'price': '₹${item.currentPrice.toStringAsFixed(0)}/${item.unit}',
+      'trend': item.isUp,
+      'lastUpdated': 'Govt Verified • Just Now',
+      'isGovtVerified': true,
+    }).toList();
+
+    final filtered = _selectedDistrict == null && _searchQuery.isEmpty
+        ? adminItems
+        : [
+            ...adminItems,
+            ..._db.where((e) =>
+                (_selectedDistrict == null || e['district'] == _selectedDistrict) &&
+                (e['cropName'] as String).toLowerCase().contains(_searchQuery.toLowerCase())).toList()
+          ];
 
     return Scaffold(
       backgroundColor: _kCream,
@@ -1574,6 +1694,25 @@ class _MarketViewState extends State<_MarketView> {
             const SizedBox(width: 10),
             Text(item['cropName'] as String,
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kDarkGreen)),
+            if (item['isGovtVerified'] == true) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF93C5FD)),
+                ),
+                child: const Text(
+                  'Govt Verified',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                ),
+              ),
+            ],
           ]),
           Row(children: [
             Text(item['price'] as String, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:integrated_agri_hub/screens/role_selection_screen.dart';
 import 'package:integrated_agri_hub/screens/farmer_home_screen.dart';
+import 'package:integrated_agri_hub/screens/admin_home_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -338,14 +339,24 @@ class _LoginOverlayState extends State<LoginOverlay> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
+      final input = _emailPhoneController.text.trim();
+      final pwd = _passwordController.text.trim();
+
       // Close the bottom sheet on success
       Navigator.pop(context);
       
-      // Simulate successful login and route to Farmer Home Screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const FarmerHomeScreen()),
-      );
+      if ((input.toLowerCase().contains('admin') || input == 'GOV-ADMIN') && pwd == 'admin123') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        );
+      } else {
+        // Default route for Farmer/Shopkeeper
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const FarmerHomeScreen()),
+        );
+      }
     }
   }
 

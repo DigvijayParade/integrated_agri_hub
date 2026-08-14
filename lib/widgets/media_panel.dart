@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/crop_education_data.dart';
+import 'youtube_player_widget.dart';
 
 class MediaPanel extends StatelessWidget {
   final CropEducationData cropData;
@@ -10,9 +11,30 @@ class MediaPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (cropData.relatedVideoUrls.isEmpty) {
       return Center(
-        child: Text(
-          'No videos available for ${cropData.cropName}.',
-          style: Theme.of(context).textTheme.bodyLarge,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.video_library_outlined,
+              size: 56,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No educational videos uploaded yet for ${cropData.cropName}.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Government Admin officers publish new video tutorials regularly.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.black45),
+            ),
+          ],
         ),
       );
     }
@@ -21,39 +43,15 @@ class MediaPanel extends StatelessWidget {
       padding: const EdgeInsets.all(16.0),
       itemCount: cropData.relatedVideoUrls.length,
       itemBuilder: (context, index) {
-        // final videoUrl = cropData.relatedVideoUrls[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16.0),
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Video Thumbnail Placeholder
-              Container(
-                height: 180,
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                child: Center(
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Text(
-                  '${cropData.cropName} Video Guide ${index + 1}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ),
-            ],
-          ),
+        final videoUrl = cropData.relatedVideoUrls[index];
+        final title = (index < cropData.videoTitles.length &&
+                cropData.videoTitles[index].isNotEmpty)
+            ? cropData.videoTitles[index]
+            : '${cropData.cropName} Educational Video Guide ${index + 1}';
+
+        return YoutubePlayerWidget(
+          videoUrl: videoUrl,
+          videoTitle: title,
         );
       },
     );
