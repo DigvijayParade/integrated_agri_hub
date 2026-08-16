@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
 
 const _kGreen = Color(0xFF4A7C59);
@@ -14,8 +16,28 @@ class ShopkeeperHomeScreen extends StatefulWidget {
 
 class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
   int _currentIndex = 0;
+  String _shopName = 'Loading...';
 
   double _todaySales = 12450.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  void _fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (mounted && doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        setState(() {
+          _shopName = data['fullName'] ?? 'Shopkeeper';
+        });
+      }
+    }
+  }
 
   final List<Map<String, dynamic>> _ledgerEntries = [
     {'date': '29 Jul 2026', 'farmer': 'Rajesh Patil', 'items': '2x Neem Urea', 'discount': '\u20b9 242 (DBT)', 'total': '\u20b9 484', 'amount': 484.0},
@@ -32,7 +54,7 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
 
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
-      case 0: return _HomeView(todaySales: _todaySales);
+      case 0: return _HomeView(todaySales: _todaySales, shopName: _shopName);
       case 1: return const _InventoryView();
       case 2: return _LedgerView(entries: _ledgerEntries, onAddEntry: _addLedgerEntry);
       case 3: return const _ScanSubsidyView();
@@ -152,7 +174,7 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (title != null) ...[
@@ -230,7 +252,7 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20), border: Border.all(color: _kGreen.withValues(alpha: 0.4))),
+                  decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20), border: Border.all(color: _kGreen.withOpacity(0.4))),
                   child: const Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.verified_user, size: 12, color: _kGreen), SizedBox(width: 4),
                     Text('License Verified', style: TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.w600)),
@@ -295,7 +317,8 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
 // === HOME VIEW ===
 class _HomeView extends StatelessWidget {
   final double todaySales;
-  const _HomeView({required this.todaySales});
+  final String shopName;
+  const _HomeView({required this.todaySales, required this.shopName});
 
   @override
   Widget build(BuildContext context) {
@@ -310,12 +333,12 @@ class _HomeView extends StatelessWidget {
               children: [
                 GestureDetector(
                   onTap: () => _showShopkeeperProfile(context),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Welcome back,', style: TextStyle(fontSize: 14, color: Colors.black54)),
-                      SizedBox(height: 2),
-                      Text('Balaji Agri Store \u{1F4C8}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+                      const Text('Welcome back,', style: TextStyle(fontSize: 14, color: Colors.black54)),
+                      const SizedBox(height: 2),
+                      Text('$shopName \u{1F4C8}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
                     ],
                   ),
                 ),
@@ -346,8 +369,8 @@ class _HomeView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white, borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]
+                border: Border.all(color: _kGreen.withOpacity(0.3)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
               ),
               child: Row(
                 children: [
@@ -384,7 +407,7 @@ class _HomeView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,8 +534,8 @@ class _InventoryViewState extends State<_InventoryView> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white, borderRadius: BorderRadius.circular(12),
-                      border: item['lowStock'] ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5)) : null,
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
+                      border: item['lowStock'] ? Border.all(color: Colors.redAccent.withOpacity(0.5)) : null,
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
                     ),
                     child: Row(
                       children: [
@@ -642,7 +665,7 @@ class _LedgerViewState extends State<_LedgerView> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white, borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

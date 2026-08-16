@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:integrated_agri_hub/screens/role_selection_screen.dart';
 import 'package:integrated_agri_hub/screens/farmer_home_screen.dart';
 import 'package:integrated_agri_hub/screens/admin_home_screen.dart';
+import 'package:integrated_agri_hub/screens/shopkeeper_home_screen.dart';
+import 'package:integrated_agri_hub/services/firebase_auth_service.dart';
 import 'package:integrated_agri_hub/theme/app_theme.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -133,13 +135,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: AppTheme.primaryGreen.withValues(alpha: 0.3),
+                            color: AppTheme.primaryGreen.withOpacity(0.3),
                             width: 2,
                           ),
                         ),
                         padding: const EdgeInsets.all(6), // Space for the inner ring
                         child: Container(
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
@@ -151,7 +153,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.primaryGreen.withValues(alpha: 0.2),
+                                color: AppTheme.primaryGreen.withOpacity(0.2),
                                 blurRadius: 12,
                                 offset: const Offset(0, 6),
                               ),
@@ -191,7 +193,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryGreen.withValues(alpha: 0.3),
+                              color: AppTheme.primaryGreen.withOpacity(0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -259,7 +261,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         decoration: BoxDecoration(
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
+                              color: Colors.black.withOpacity(0.02),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -314,8 +316,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 icon: const Icon(Icons.info_outline),
                 color: AppTheme.primaryGreen,
                 iconSize: 28,
-                splashColor: AppTheme.primaryGreen.withValues(alpha: 0.2),
-                highlightColor: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                splashColor: AppTheme.primaryGreen.withOpacity(0.2),
+                highlightColor: AppTheme.primaryGreen.withOpacity(0.1),
               ),
             ),
           ],
@@ -336,27 +338,73 @@ class _LoginOverlayState extends State<LoginOverlay> {
   final _formKey = GlobalKey<FormState>();
   final _emailPhoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final FirebaseAuthService _authService = FirebaseAuthService();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      final input = _emailPhoneController.text.trim();
-      final pwd = _passwordController.text.trim();
+  void _handleLogin() async {
+    final emailPhone = _emailPhoneController.text.trim();
+    final password = _passwordController.text;
 
-      // Close the bottom sheet on success
-      Navigator.pop(context);
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (emailPhone.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    // Admin backdoor
+    if (emailPhone == 'GOV-ADMIN') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      if (!emailPhone.contains('@')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("For Phone Number login, we need to implement OTP verification. For now, please use your Email to login."), backgroundColor: Colors.orange),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final user = await _authService.signInWithEmailAndPassword(emailPhone, password);
       
-      if ((input.toLowerCase().contains('admin') || input == 'GOV-ADMIN') && pwd == 'admin123') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+      if (user != null) {
+        final role = await _authService.getUserRole(user.uid);
+        
+        if (mounted) {
+          if (role == 'shopkeeper') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ShopkeeperHomeScreen()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const FarmerHomeScreen()),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: ${e.toString().split(']').last.trim()}'), backgroundColor: Colors.redAccent),
         );
-      } else {
-        // Default route for Farmer/Shopkeeper
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const FarmerHomeScreen()),
-        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -474,7 +522,7 @@ class _LoginOverlayState extends State<LoginOverlay> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryGreen,
                     foregroundColor: Colors.white,
@@ -483,13 +531,15 @@ class _LoginOverlayState extends State<LoginOverlay> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Log In',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isLoading 
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Log In',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 16),

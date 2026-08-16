@@ -205,12 +205,12 @@ class RoleSelectionScreen extends StatelessWidget {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: baseColor.withValues(alpha: 0.3),
+          color: baseColor.withOpacity(0.3),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: baseColor.withValues(alpha: 0.1),
+            color: baseColor.withOpacity(0.1),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -221,8 +221,8 @@ class RoleSelectionScreen extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
-          splashColor: baseColor.withValues(alpha: 0.15),
-          highlightColor: baseColor.withValues(alpha: 0.05),
+          splashColor: baseColor.withOpacity(0.15),
+          highlightColor: baseColor.withOpacity(0.05),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -234,7 +234,7 @@ class RoleSelectionScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: baseColor.withValues(alpha: 0.15),
+                        color: baseColor.withOpacity(0.15),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -256,7 +256,7 @@ class RoleSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
-                          color: baseColor.withValues(alpha: 0.9),
+                          color: baseColor.withOpacity(0.9),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -274,7 +274,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 ),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: baseColor.withValues(alpha: 0.6),
+                  color: baseColor.withOpacity(0.6),
                   size: 18,
                 ),
               ],

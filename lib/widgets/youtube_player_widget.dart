@@ -50,7 +50,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: Colors.black.withOpacity(0.15),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -82,8 +82,8 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.black.withValues(alpha: _isPlaying ? 0.2 : 0.4),
-                        Colors.black.withValues(alpha: _isPlaying ? 0.3 : 0.6),
+                        Colors.black.withOpacity(_isPlaying ? 0.2 : 0.4),
+                        Colors.black.withOpacity(_isPlaying ? 0.3 : 0.6),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -155,7 +155,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
+                        color: Colors.black.withOpacity(0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -176,7 +176,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
+                      color: Colors.black.withOpacity(0.75),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.white24),
                     ),

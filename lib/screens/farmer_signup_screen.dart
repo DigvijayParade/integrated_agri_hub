@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:integrated_agri_hub/services/firebase_auth_service.dart';
+import 'package:integrated_agri_hub/screens/farmer_home_screen.dart';
 
 class FarmerSignupScreen extends StatefulWidget {
   const FarmerSignupScreen({super.key});
@@ -15,6 +18,10 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  final FirebaseAuthService _authService = FirebaseAuthService();
+  bool _isLoading = false;
+  String? _verificationId;
+
   String? _selectedState;
   final List<String> _states = ['Maharashtra', 'Punjab', 'Kerala'];
 
@@ -29,46 +36,111 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
 
-  void _sendOtp() {
-    if (_emailPhoneController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please enter a valid Phone Number or Email address first"),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+  void _sendOtp() async {
+    final input = _emailPhoneController.text.trim();
+    if (input.isEmpty) {
+      _showSnack("Please enter Email or Phone Number first", Colors.redAccent);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Demo OTP sent! Use '1234' to verify."),
-        backgroundColor: Color(0xFF4A7C59),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    
+    // If it's an email, we don't strictly need OTP for basic Firebase email/pwd auth
+    if (input.contains('@')) {
+      _showSnack("Email detected! You don't need an OTP. Just fill the password and complete signup.", const Color(0xFF4A7C59));
+      return;
+    }
+
+    // Phone Auth Flow
+    setState(() => _isLoading = true);
+    try {
+      // Add country code if not present (assuming India +91)
+      String phone = input.startsWith('+') ? input : '+91$input';
+      
+      await _authService.verifyPhoneNumber(
+        phoneNumber: phone,
+        verificationCompleted: (credential) async {
+          _otpController.text = credential.smsCode ?? '';
+          _showSnack("Phone verified automatically!", const Color(0xFF4A7C59));
+        },
+        verificationFailed: (e) {
+          setState(() => _isLoading = false);
+          _showSnack("Verification Failed: ${e.message}", Colors.redAccent);
+        },
+        codeSent: (verificationId, resendToken) {
+          setState(() {
+            _isLoading = false;
+            _verificationId = verificationId;
+          });
+          _showSnack("OTP Sent via SMS!", const Color(0xFF4A7C59));
+        },
+        codeAutoRetrievalTimeout: (verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnack("Error: $e", Colors.redAccent);
+    }
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      if (_otpController.text != '1234') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Invalid OTP! Please use '1234'."),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    setState(() => _isLoading = true);
+    final input = _emailPhoneController.text.trim();
+    final pwd = _passwordController.text;
+    final name = _nameController.text.trim();
+
+    try {
+      User? user;
+      if (input.contains('@')) {
+        // Email Signup
+        user = await _authService.signUpWithEmailAndPassword(input, pwd);
+      } else {
+        // Phone Signup
+        if (_verificationId == null) {
+          _showSnack("Please request OTP first", Colors.redAccent);
+          setState(() => _isLoading = false);
+          return;
+        }
+        if (_otpController.text.isEmpty) {
+          _showSnack("Please enter the OTP sent to your phone", Colors.redAccent);
+          setState(() => _isLoading = false);
+          return;
+        }
+        user = await _authService.signInWithPhoneCredential(_verificationId!, _otpController.text.trim());
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Farmer Signup successful!"),
-          backgroundColor: Color(0xFF4A7C59),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+
+      if (user != null) {
+        // Save to Firestore
+        await _authService.saveUserProfile(user.uid, {
+          'role': 'farmer',
+          'fullName': name,
+          'emailOrPhone': input,
+          'state': _selectedState,
+          'selectedCrops': _selectedCrops.toList(),
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+
+        _showSnack("Signup successful!", const Color(0xFF4A7C59));
+        
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const FarmerHomeScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      _showSnack("Error: $e", Colors.redAccent);
+    } finally {
+      setState(() => _isLoading = false);
     }
+  }
+
+  void _showSnack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: color, behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
@@ -271,14 +343,16 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _submit,
+                    onPressed: _isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4A7C59),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 4,
                     ),
-                    child: const Text('Complete Signup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    child: _isLoading 
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Complete Signup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -298,7 +372,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),

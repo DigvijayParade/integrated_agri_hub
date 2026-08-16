@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:integrated_agri_hub/screens/welcome_screen.dart';
 import 'dart:async';
 import 'package:integrated_agri_hub/models/app_notification.dart';
@@ -32,7 +34,9 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
     {'name': 'Discount Voucher: Cotton Seeds',    'dt': '11 Jul 2026, 03:45 PM', 'id': '#98140', 'amount': '-20', 'credit': false},
   ];
 
-  List<String> _registeredCrops = ['Soybean', 'Sugarcane', 'Cotton'];
+  List<String> _registeredCrops = [];
+  String _farmerName = 'Loading...';
+  String _farmerState = '';
   final List<Quiz> _archivedQuizzes = [];
 
   List<AppNotification> _notifications = [
@@ -54,6 +58,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchUserData();
     _notificationTimer = Timer(const Duration(seconds: 10), () {
       if (mounted) {
         setState(() {
@@ -66,6 +71,23 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
         });
       }
     });
+  }
+
+  void _fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (mounted && doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        setState(() {
+          _farmerName = data['fullName'] ?? 'Farmer';
+          _farmerState = data['state'] ?? '';
+          if (data['selectedCrops'] != null) {
+            _registeredCrops = List<String>.from(data['selectedCrops']);
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -90,6 +112,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
     switch (_currentIndex) {
       case 0: return _DashboardView(
           greenCoins: _greenCoins,
+          farmerName: _farmerName,
           onShowProfile: () => _showProfileModal(context, _greenCoins, _transactions, _registeredCrops, (c) => setState(() => _registeredCrops = c)),
           onAddCoins: _addCoins,
           completedQuizzesCount: _archivedQuizzes.length,
@@ -457,7 +480,7 @@ class _QuizViewState extends State<_QuizView> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +507,7 @@ class _QuizViewState extends State<_QuizView> {
               else
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
                   child: Row(
                     children: [
                       const Text('\u{1FAA9}', style: TextStyle(fontSize: 12)), const SizedBox(width: 4),
@@ -620,7 +643,7 @@ class _QuizViewState extends State<_QuizView> {
               if (reward > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4AF37))),
+                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4AF37))),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -671,6 +694,7 @@ class TaskItem {
 // === DASHBOARD VIEW ===
 class _DashboardView extends StatefulWidget {
   final int greenCoins;
+  final String farmerName;
   final VoidCallback onShowProfile;
   final void Function(int, String) onAddCoins;
   final int completedQuizzesCount;
@@ -679,6 +703,7 @@ class _DashboardView extends StatefulWidget {
 
   const _DashboardView({
     required this.greenCoins,
+    required this.farmerName,
     required this.onShowProfile,
     required this.onAddCoins,
     required this.completedQuizzesCount,
@@ -727,13 +752,13 @@ class _DashboardViewState extends State<_DashboardView> {
                 Expanded(
                   child: GestureDetector(
                     onTap: widget.onShowProfile,
-                    child: const Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Namaste,', style: TextStyle(fontSize: 14, color: Colors.black54)),
-                        SizedBox(height: 2),
-                        Text('Rajesh Patil \u{1F33E}',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen),
+                        const Text('Namaste,', style: TextStyle(fontSize: 14, color: Colors.black54)),
+                        const SizedBox(height: 2),
+                        Text('${widget.farmerName} \u{1F33E}',
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen),
                             overflow: TextOverflow.ellipsis),
                       ],
                     ),
@@ -767,8 +792,8 @@ class _DashboardViewState extends State<_DashboardView> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.6), width: 1.5),
-                          boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withValues(alpha: 0.2), blurRadius: 12)],
+                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.6), width: 1.5),
+                          boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.2), blurRadius: 12)],
                         ),
                         child: Row(children: [
                           const Icon(Icons.eco, color: _kGreen, size: 18),
@@ -847,11 +872,11 @@ class _DashboardViewState extends State<_DashboardView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
         border: Border.all(
           color: task.status == 'Approved' 
-              ? _kGreen.withValues(alpha: 0.3) 
-              : (task.status == 'Pending Verification' ? Colors.orange.withValues(alpha: 0.3) : Colors.transparent),
+              ? _kGreen.withOpacity(0.3) 
+              : (task.status == 'Pending Verification' ? Colors.orange.withOpacity(0.3) : Colors.transparent),
           width: 1.5,
         ),
       ),
@@ -871,7 +896,7 @@ class _DashboardViewState extends State<_DashboardView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                  color: const Color(0xFFD4AF37).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -990,12 +1015,12 @@ class _DashboardViewState extends State<_DashboardView> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 22)),
         const SizedBox(height: 14),
         Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -1048,7 +1073,7 @@ class _DashboardViewState extends State<_DashboardView> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
         ),
         child: Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1059,7 +1084,7 @@ class _DashboardViewState extends State<_DashboardView> {
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: tagColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: tagColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(tag, style: TextStyle(color: tagColor, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 4),
@@ -1201,7 +1226,7 @@ class _ProfileModalState extends State<_ProfileModal> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _kGreen.withValues(alpha: 0.4))),
+                      border: Border.all(color: _kGreen.withOpacity(0.4))),
                   child: const Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.verified_user, size: 12, color: _kGreen), SizedBox(width: 4),
                     Text('Aadhaar Verified', style: TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.w600)),
@@ -1380,7 +1405,7 @@ class _ProfileModalState extends State<_ProfileModal> {
         decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.shade100),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (title != null) ...[
@@ -1408,7 +1433,7 @@ class _ProfileModalState extends State<_ProfileModal> {
           Text(label, style: const TextStyle(fontSize: 11, color: Colors.black45)),
           DropdownButton<String>(
             value: value, isExpanded: true, isDense: true,
-            underline: Container(height: 1, color: _kGreen.withValues(alpha: 0.3)),
+            underline: Container(height: 1, color: _kGreen.withOpacity(0.3)),
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
             items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
             onChanged: cb,
@@ -1427,7 +1452,7 @@ class _ProfileModalState extends State<_ProfileModal> {
             decoration: InputDecoration(
               isDense: true, suffixText: suffix,
               suffixStyle: const TextStyle(color: Colors.black54, fontSize: 13),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _kGreen.withValues(alpha: 0.3))),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _kGreen.withOpacity(0.3))),
               focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: _kGreen)),
             ),
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -1442,7 +1467,7 @@ class _ProfileModalState extends State<_ProfileModal> {
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         CircleAvatar(
           radius: 16,
-          backgroundColor: isCredit ? Colors.greenAccent.withValues(alpha: 0.2) : Colors.redAccent.withValues(alpha: 0.2),
+          backgroundColor: isCredit ? Colors.greenAccent.withOpacity(0.2) : Colors.redAccent.withOpacity(0.2),
           child: Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward, size: 14,
               color: isCredit ? Colors.greenAccent : Colors.redAccent),
         ),
@@ -1571,7 +1596,7 @@ class _MarketViewState extends State<_MarketView> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
                 color: _kLightGreen, borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _kGreen.withValues(alpha: 0.3))),
+                border: Border.all(color: _kGreen.withOpacity(0.3))),
             child: const Row(children: [
               Icon(Icons.location_on, size: 14, color: _kGreen), SizedBox(width: 4),
               Text('Maharashtra', style: TextStyle(fontSize: 12, color: _kDarkGreen, fontWeight: FontWeight.w600)),
@@ -1589,7 +1614,7 @@ class _MarketViewState extends State<_MarketView> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.white, borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)],
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -1687,7 +1712,7 @@ class _MarketViewState extends State<_MarketView> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
       ),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1729,7 +1754,7 @@ class _MarketViewState extends State<_MarketView> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: isUp ? _kGreen.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                color: isUp ? _kGreen.withOpacity(0.1) : Colors.red.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(isUp ? Icons.arrow_upward : Icons.arrow_downward,

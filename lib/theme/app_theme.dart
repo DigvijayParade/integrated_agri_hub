@@ -36,17 +36,16 @@ class AppTheme {
         seedColor: primaryGreen,
         primary: primaryGreen,
         secondary: accentYellow,
-        background: backgroundCream,
         surface: Colors.white,
       ),
       scaffoldBackgroundColor: backgroundCream,
       textTheme: textTheme,
       
       // Card Theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 2,
-        shadowColor: Colors.black.withValues(alpha: 0.05),
+        shadowColor: Colors.black.withOpacity(0.05),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: EdgeInsets.zero,
       ),

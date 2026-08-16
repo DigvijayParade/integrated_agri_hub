@@ -108,7 +108,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with SingleTickerProv
           children: [
             ColorFiltered(
               colorFilter: ColorFilter.mode(
-                Colors.black.withValues(alpha: 0.8),
+                Colors.black.withOpacity(0.8),
                 BlendMode.srcOut,
               ),
               child: Stack(
@@ -155,7 +155,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with SingleTickerProv
                               color: Colors.greenAccent,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.greenAccent.withValues(alpha: 0.5),
+                                  color: Colors.greenAccent.withOpacity(0.5),
                                   blurRadius: 10,
                                   spreadRadius: 2,
                                 ),

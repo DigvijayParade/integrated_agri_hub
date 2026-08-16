@@ -57,14 +57,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   decoration: BoxDecoration(
                     color: notif.isRead ? Colors.white : const Color(0xFFF0F5E8),
                     borderRadius: BorderRadius.circular(12),
-                    border: notif.isRead ? null : Border.all(color: const Color(0xFF4A7C59).withValues(alpha: 0.3)),
+                    border: notif.isRead ? null : Border.all(color: const Color(0xFF4A7C59).withOpacity(0.3)),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))
+                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
                     ]
                   ),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: iconColor.withValues(alpha: 0.2),
+                      backgroundColor: iconColor.withOpacity(0.2),
                       child: Icon(icon, color: iconColor),
                     ),
                     title: Text(
