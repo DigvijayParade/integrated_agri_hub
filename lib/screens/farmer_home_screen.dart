@@ -26,50 +26,21 @@ class FarmerHomeScreen extends StatefulWidget {
 class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   int _currentIndex = 0;
   
-  int _greenCoins = 150;
-  final List<Map<String, dynamic>> _transactions = [
-    {'name': 'Quiz Completed',                   'dt': '14 Jul 2026, 05:30 PM', 'id': '#98321', 'amount': '+50', 'credit': true},
-    {'name': 'Discount Voucher: Neem Coated Urea','dt': '13 Jul 2026, 11:15 AM', 'id': '#98289', 'amount': '-30', 'credit': false},
-    {'name': 'Quiz Completed',                   'dt': '12 Jul 2026, 07:00 PM', 'id': '#98201', 'amount': '+50', 'credit': true},
-    {'name': 'Discount Voucher: Cotton Seeds',    'dt': '11 Jul 2026, 03:45 PM', 'id': '#98140', 'amount': '-20', 'credit': false},
-  ];
+  int _greenCoins = 0;
+  final List<Map<String, dynamic>> _transactions = [];
 
   List<String> _registeredCrops = [];
   String _farmerName = 'Loading...';
   final List<Quiz> _archivedQuizzes = [];
 
-  List<AppNotification> _notifications = [
-    AppNotification(
-      title: "Market Price Spike! \u{1F4C8}",
-      message: "Wheat prices have increased by 5% in your local Mandi.",
-      category: "Market",
-      time: DateTime.now().subtract(const Duration(minutes: 15)),
-    ),
-    AppNotification(
-      title: "Watering Reminder \u{1F4A7}",
-      message: "It has been 3 days. Your Tomato crops need watering.",
-      category: "Schedule",
-      time: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-  ];
+  List<AppNotification> _notifications = [];
   Timer? _notificationTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchUserData();
-    _notificationTimer = Timer(const Duration(seconds: 10), () {
-      if (mounted) {
-        setState(() {
-          _notifications.insert(0, AppNotification(
-            title: "Weather Alert \u{26C8}",
-            message: "Heavy rainfall expected in your area this evening. Please protect harvested crops.",
-            category: "Alert",
-            time: DateTime.now(),
-          ));
-        });
-      }
-    });
+    // Notifications will be loaded from backend in future
   }
 
   void _fetchUserData() async {
@@ -714,26 +685,7 @@ class _DashboardView extends StatefulWidget {
 }
 
 class _DashboardViewState extends State<_DashboardView> {
-  final List<TaskItem> _tasks = [
-    TaskItem(
-      id: 'task_1',
-      title: 'Sow Soybean Seeds',
-      description: 'Plant soybean seeds with correct row spacing of 45cm.',
-      reward: 80,
-    ),
-    TaskItem(
-      id: 'task_2',
-      title: 'Apply Neem Fertilizer',
-      description: 'Spray organic neem pesticide on the cotton crop.',
-      reward: 120,
-    ),
-    TaskItem(
-      id: 'task_3',
-      title: 'Clean Drip Irrigation Filters',
-      description: 'Flush and clean the main APMC drip system filter.',
-      reward: 50,
-    ),
-  ];
+  final List<TaskItem> _tasks = [];
 
   @override
   Widget build(BuildContext context) {
@@ -813,14 +765,14 @@ class _DashboardViewState extends State<_DashboardView> {
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
               child: Row(children: [
-                _progressCard("Today's Streak", '5 Days', 'Keep it up! \u{1F525}', Icons.local_fire_department, Colors.orange),
+                _progressCard("Today's Streak", '0 Days', 'Start your streak! 🔥', Icons.local_fire_department, Colors.orange),
                 const SizedBox(width: 14),
-                _progressCard('Quizzes Done', '${12 + widget.completedQuizzesCount}', '2 New available', Icons.assignment_turned_in, _kGreen),
+                _progressCard('Quizzes Done', '${widget.completedQuizzesCount}', 'Complete to earn coins', Icons.assignment_turned_in, _kGreen),
                 const SizedBox(width: 14),
                 _progressCard(
                   'Tasks Pending', 
-                  '${_tasks.where((t) => t.status != 'Approved').length}', 
-                  'Complete for rewards', 
+                  '0', 
+                  'Tasks assigned by admin', 
                   Icons.pending_actions, 
                   Colors.blueAccent,
                 ),
@@ -831,7 +783,22 @@ class _DashboardViewState extends State<_DashboardView> {
             // Real-life Tasks Window
             const Text('Real-Life Tasks & Rewards', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _kDarkGreen)),
             const SizedBox(height: 12),
-            ..._tasks.map((task) => _buildTaskCard(task)),
+            if (_tasks.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: const Center(
+                  child: Column(children: [
+                    Icon(Icons.assignment_outlined, size: 48, color: Colors.black26),
+                    SizedBox(height: 12),
+                    Text('No tasks assigned yet', style: TextStyle(color: Colors.black45, fontSize: 15)),
+                    SizedBox(height: 4),
+                    Text('Admin will assign tasks to you soon', style: TextStyle(color: Colors.black38, fontSize: 13)),
+                  ]),
+                ),
+              )
+            else
+              ..._tasks.map((task) => _buildTaskCard(task)),
             const SizedBox(height: 28),
 
             // Subsidies

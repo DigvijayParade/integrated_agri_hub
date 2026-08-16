@@ -13,14 +13,12 @@ class FarmerSignupScreen extends StatefulWidget {
 class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _emailPhoneController = TextEditingController();
-  final _otpController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   final FirebaseAuthService _authService = FirebaseAuthService();
   bool _isLoading = false;
-  String? _verificationId;
 
   String? _selectedState;
   final List<String> _states = ['Maharashtra', 'Punjab', 'Kerala'];
@@ -36,93 +34,36 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
 
-  void _sendOtp() async {
-    final input = _emailPhoneController.text.trim();
-    if (input.isEmpty) {
-      _showSnack("Please enter Email or Phone Number first", Colors.redAccent);
-      return;
-    }
-    
-    // If it's an email, we don't strictly need OTP for basic Firebase email/pwd auth
-    if (input.contains('@')) {
-      _showSnack("Email detected! You don't need an OTP. Just fill the password and complete signup.", const Color(0xFF4A7C59));
-      return;
-    }
-
-    // Phone Auth Flow
-    setState(() => _isLoading = true);
-    try {
-      // Add country code if not present (assuming India +91)
-      String phone = input.startsWith('+') ? input : '+91$input';
-      
-      await _authService.verifyPhoneNumber(
-        phoneNumber: phone,
-        verificationCompleted: (credential) async {
-          _otpController.text = credential.smsCode ?? '';
-          _showSnack("Phone verified automatically!", const Color(0xFF4A7C59));
-        },
-        verificationFailed: (e) {
-          setState(() => _isLoading = false);
-          _showSnack("Verification Failed: ${e.message}", Colors.redAccent);
-        },
-        codeSent: (verificationId, resendToken) {
-          setState(() {
-            _isLoading = false;
-            _verificationId = verificationId;
-          });
-          _showSnack("OTP Sent via SMS!", const Color(0xFF4A7C59));
-        },
-        codeAutoRetrievalTimeout: (verificationId) {
-          _verificationId = verificationId;
-        },
-      );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showSnack("Error: $e", Colors.redAccent);
-    }
-  }
-
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+    if (_selectedCrops.isEmpty) {
+      _showSnack('Please select at least one crop', Colors.redAccent);
+      return;
+    }
+
     setState(() => _isLoading = true);
-    final input = _emailPhoneController.text.trim();
+    final email = _emailController.text.trim();
     final pwd = _passwordController.text;
     final name = _nameController.text.trim();
 
     try {
-      User? user;
-      if (input.contains('@')) {
-        // Email Signup
-        user = await _authService.signUpWithEmailAndPassword(input, pwd);
-      } else {
-        // Phone Signup
-        if (_verificationId == null) {
-          _showSnack("Please request OTP first", Colors.redAccent);
-          setState(() => _isLoading = false);
-          return;
-        }
-        if (_otpController.text.isEmpty) {
-          _showSnack("Please enter the OTP sent to your phone", Colors.redAccent);
-          setState(() => _isLoading = false);
-          return;
-        }
-        user = await _authService.signInWithPhoneCredential(_verificationId!, _otpController.text.trim());
-      }
+      final User? user = await _authService.signUpWithEmailAndPassword(email, pwd);
 
       if (user != null) {
-        // Save to Firestore
         await _authService.saveUserProfile(user.uid, {
           'role': 'farmer',
           'fullName': name,
-          'emailOrPhone': input,
+          'email': email,
           'state': _selectedState,
           'selectedCrops': _selectedCrops.toList(),
+          'greenCoins': 0,
+          'streak': 0,
+          'quizzesCompleted': 0,
           'createdAt': DateTime.now().toIso8601String(),
         });
 
-        _showSnack("Signup successful!", const Color(0xFF4A7C59));
-        
+        _showSnack('Account created successfully!', const Color(0xFF4A7C59));
+
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -131,9 +72,9 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
         }
       }
     } catch (e) {
-      _showSnack("Error: $e", Colors.redAccent);
+      _showSnack('Signup failed: ${e.toString().split(']').last.trim()}', Colors.redAccent);
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -146,8 +87,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _emailPhoneController.dispose();
-    _otpController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -160,18 +100,9 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF4A7C59), width: 2),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4A7C59), width: 2)),
     );
   }
 
@@ -182,7 +113,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Farmer Signup', style: TextStyle(color: Color(0xFF4A7C59), fontWeight: FontWeight.bold)),
+        title: const Text('Farmer Registration', style: TextStyle(color: Color(0xFF4A7C59), fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF4A7C59)),
           onPressed: () => Navigator.pop(context),
@@ -196,79 +127,48 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Personal Details Card
+                // Personal Details
                 _buildSectionCard(
                   title: 'Personal Details',
                   children: [
                     TextFormField(
                       controller: _nameController,
                       decoration: _buildInputDecoration('Full Name', Icons.person_outline),
-                      validator: (value) => value == null || value.isEmpty ? 'Enter your name' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextFormField(
-                            controller: _emailPhoneController,
-                            decoration: _buildInputDecoration('Email or Phone', Icons.contact_phone_outlined),
-                            validator: (value) => value == null || value.isEmpty ? 'Enter email/phone' : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 1,
-                          child: SizedBox(
-                            height: 56, // Match text field height
-                            child: ElevatedButton(
-                              onPressed: _sendOtp,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4A7C59),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              child: const Text('Send OTP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ),
-                      ],
+                      validator: (v) => v == null || v.isEmpty ? 'Enter your full name' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      controller: _otpController,
-                      decoration: _buildInputDecoration('Enter OTP', Icons.message_outlined),
-                      validator: (value) => value == null || value.isEmpty ? 'Enter OTP' : null,
-                      keyboardType: TextInputType.number,
+                      controller: _emailController,
+                      decoration: _buildInputDecoration('Email Address', Icons.email_outlined),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Enter your email';
+                        if (!v.contains('@')) return 'Enter a valid email address';
+                        return null;
+                      },
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                // Agricultural Details Card
+                // Agricultural Details
                 _buildSectionCard(
                   title: 'Agricultural Details',
                   children: [
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedState,
+                      value: _selectedState,
                       decoration: _buildInputDecoration('Select State', Icons.map_outlined),
-                      items: _states.map((state) {
-                        return DropdownMenuItem(value: state, child: Text(state));
-                      }).toList(),
+                      items: _states.map((state) => DropdownMenuItem(value: state, child: Text(state))).toList(),
                       onChanged: (value) {
                         setState(() {
                           _selectedState = value;
-                          _selectedCrops.clear(); // Clear crops on state change
+                          _selectedCrops.clear();
                         });
                       },
-                      validator: (value) => value == null ? 'Please select a state' : null,
+                      validator: (v) => v == null ? 'Please select your state' : null,
                     ),
                     if (_selectedState != null) ...[
                       const SizedBox(height: 16),
-                      const Text(
-                        'Popular Crops in your Region',
-                        style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2A5934)),
-                      ),
+                      const Text('Select Your Crops', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2A5934))),
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8.0,
@@ -280,11 +180,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                             selected: isSelected,
                             onSelected: (bool selected) {
                               setState(() {
-                                if (selected) {
-                                  _selectedCrops.add(crop);
-                                } else {
-                                  _selectedCrops.remove(crop);
-                                }
+                                if (selected) { _selectedCrops.add(crop); } else { _selectedCrops.remove(crop); }
                               });
                             },
                             selectedColor: const Color(0xFFE2E8D5),
@@ -295,9 +191,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: isSelected ? const Color(0xFF4A7C59) : Colors.grey.shade300,
-                              ),
+                              side: BorderSide(color: isSelected ? const Color(0xFF4A7C59) : Colors.grey.shade300),
                             ),
                           );
                         }).toList(),
@@ -306,7 +200,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                // Security Card
+                // Security
                 _buildSectionCard(
                   title: 'Security',
                   children: [
@@ -319,7 +213,11 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                           onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                         ),
                       ),
-                      validator: (value) => value == null || value.isEmpty ? 'Enter password' : null,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Enter a password';
+                        if (v.length < 6) return 'Password must be at least 6 characters';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -331,9 +229,9 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                           onPressed: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Confirm your password';
-                        if (value != _passwordController.text) return 'Passwords do not match';
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Confirm your password';
+                        if (v != _passwordController.text) return 'Passwords do not match';
                         return null;
                       },
                     ),
@@ -350,9 +248,9 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 4,
                     ),
-                    child: _isLoading 
+                    child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Complete Signup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        : const Text('Create Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -370,25 +268,12 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2A5934),
-            ),
-          ),
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2A5934))),
           const SizedBox(height: 20),
           ...children,
         ],

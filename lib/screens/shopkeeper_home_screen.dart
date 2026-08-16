@@ -39,11 +39,7 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
     }
   }
 
-  final List<Map<String, dynamic>> _ledgerEntries = [
-    {'date': '29 Jul 2026', 'farmer': 'Rajesh Patil', 'items': '2x Neem Urea', 'discount': '\u20b9 242 (DBT)', 'total': '\u20b9 484', 'amount': 484.0},
-    {'date': '28 Jul 2026', 'farmer': 'Suresh Kumar', 'items': '5x Cotton Seeds', 'discount': '\u20b9 250 (Voucher)', 'total': '\u20b9 3,750', 'amount': 3750.0},
-    {'date': '27 Jul 2026', 'farmer': 'Amit Desai', 'items': '1x Drip Lateral', 'discount': 'None', 'total': '\u20b9 1,200', 'amount': 1200.0},
-  ];
+  final List<Map<String, dynamic>> _ledgerEntries = [];
 
   void _addLedgerEntry(Map<String, dynamic> entry, double amount) {
     setState(() {
@@ -457,12 +453,7 @@ class _InventoryView extends StatefulWidget {
 }
 
 class _InventoryViewState extends State<_InventoryView> {
-  final List<Map<String, dynamic>> _inventory = [
-    {'name': 'Mahyco Cotton Seeds', 'price': '800', 'stock': 45, 'lowStock': false},
-    {'name': 'Neem Coated Urea (45kg)', 'price': '242', 'stock': 8, 'lowStock': true},
-    {'name': 'NPK 19:19:19', 'price': '1500', 'stock': 20, 'lowStock': false},
-    {'name': 'Drip Irrigation Lateral', 'price': '1200', 'stock': 5, 'lowStock': true},
-  ];
+  final List<Map<String, dynamic>> _inventory = [];
 
   void _showAddEditProductDialog({Map<String, dynamic>? product, int? index}) {
     final nameController = TextEditingController(text: product?['name'] ?? '');
