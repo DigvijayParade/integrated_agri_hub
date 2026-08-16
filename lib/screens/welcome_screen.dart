@@ -269,9 +269,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const FarmerHomeScreen()),
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Google Sign-In coming soon! Please use Email & Password for now.'),
+                                backgroundColor: Color(0xFF4A7C59),
+                                behavior: SnackBarBehavior.floating,
+                              ),
                             );
                           },
                           icon: RichText(
