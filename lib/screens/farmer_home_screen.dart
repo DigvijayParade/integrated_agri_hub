@@ -36,7 +36,6 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
   List<String> _registeredCrops = [];
   String _farmerName = 'Loading...';
-  String _farmerState = '';
   final List<Quiz> _archivedQuizzes = [];
 
   List<AppNotification> _notifications = [
@@ -81,7 +80,6 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
         final data = doc.data()!;
         setState(() {
           _farmerName = data['fullName'] ?? 'Farmer';
-          _farmerState = data['state'] ?? '';
           if (data['selectedCrops'] != null) {
             _registeredCrops = List<String>.from(data['selectedCrops']);
           }
