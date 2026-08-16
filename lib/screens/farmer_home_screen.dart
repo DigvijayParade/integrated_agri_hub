@@ -8,6 +8,7 @@ import 'package:integrated_agri_hub/models/app_notification.dart';
 import 'package:integrated_agri_hub/screens/notifications_screen.dart';
 import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
 import 'package:integrated_agri_hub/screens/education_feed_screen.dart';
+import 'package:integrated_agri_hub/services/user_service.dart';
 import 'package:integrated_agri_hub/services/admin_service.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -26,11 +27,18 @@ class FarmerHomeScreen extends StatefulWidget {
 class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   int _currentIndex = 0;
   
+  final _userService = UserService();
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userStreamSub;
+
   int _greenCoins = 0;
+  int _streak = 0;
+  int _quizzesCompleted = 0;
   final List<Map<String, dynamic>> _transactions = [];
 
   List<String> _registeredCrops = [];
   String _farmerName = 'Loading...';
+  String _farmerEmail = '';
+  String _farmerState = '';
   final List<Quiz> _archivedQuizzes = [];
 
   List<AppNotification> _notifications = [];
@@ -39,52 +47,83 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchUserData();
-    // Notifications will be loaded from backend in future
+    _subscribeToUserStream();
+    _grantDailyLoginBonus();
   }
 
-  void _fetchUserData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (mounted && doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        setState(() {
-          _farmerName = data['fullName'] ?? 'Farmer';
-          if (data['selectedCrops'] != null) {
-            _registeredCrops = List<String>.from(data['selectedCrops']);
-          }
-        });
-      }
+  void _subscribeToUserStream() {
+    final stream = _userService.userStream();
+    if (stream == null) return;
+    _userStreamSub = stream.listen((snapshot) {
+      if (!mounted || !snapshot.exists) return;
+      final data = snapshot.data()!;
+      setState(() {
+        _farmerName = data['fullName'] ?? 'Farmer';
+        _farmerEmail = data['email'] ?? '';
+        _farmerState = data['state'] ?? '';
+        _greenCoins = data['greenCoins'] as int? ?? 0;
+        _streak = data['streak'] as int? ?? 0;
+        _quizzesCompleted = data['quizzesCompleted'] as int? ?? 0;
+        if (data['selectedCrops'] != null) {
+          _registeredCrops = List<String>.from(data['selectedCrops']);
+        }
+      });
+    });
+  }
+
+  void _grantDailyLoginBonus() async {
+    final granted = await _userService.checkAndGrantDailyLoginBonus();
+    if (granted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🌿 Daily login bonus: +10 Green Coins!'),
+          backgroundColor: Color(0xFF4A7C59),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
   }
 
   @override
   void dispose() {
+    _userStreamSub?.cancel();
     _notificationTimer?.cancel();
     super.dispose();
   }
 
-  void _addCoins(int amount, String reason) {
-    if (!mounted) return;
-    setState(() {
-      _greenCoins += amount;
+  void _addCoins(int amount, String reason) async {
+    // Save to Firestore (stream will update UI automatically)
+    await _userService.addCoins(amount);
+    if (mounted) {
       final now = DateTime.now();
-      final dt = '${now.day} Jul 2026, 05:30 PM';
-      _transactions.insert(0, {
-        'name': reason, 'dt': dt, 'id': '#${98322 + _transactions.length}', 'amount': '+$amount', 'credit': true
+      final dt = '${now.day} ${_monthName(now.month)} ${now.year}, ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      setState(() {
+        _transactions.insert(0, {
+          'name': reason,
+          'dt': dt,
+          'id': '#${90000 + _transactions.length}',
+          'amount': '+$amount',
+          'credit': true,
+        });
       });
-    });
+    }
+  }
+
+  String _monthName(int m) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[m - 1];
   }
 
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
       case 0: return _DashboardView(
           greenCoins: _greenCoins,
+          streak: _streak,
           farmerName: _farmerName,
           onShowProfile: () => _showProfileModal(context, _greenCoins, _transactions, _registeredCrops, (c) => setState(() => _registeredCrops = c)),
           onAddCoins: _addCoins,
-          completedQuizzesCount: _archivedQuizzes.length,
+          completedQuizzesCount: _quizzesCompleted,
           notifications: _notifications,
           onOpenNotifications: () {
             Navigator.push(
@@ -663,6 +702,7 @@ class TaskItem {
 // === DASHBOARD VIEW ===
 class _DashboardView extends StatefulWidget {
   final int greenCoins;
+  final int streak;
   final String farmerName;
   final VoidCallback onShowProfile;
   final void Function(int, String) onAddCoins;
@@ -672,6 +712,7 @@ class _DashboardView extends StatefulWidget {
 
   const _DashboardView({
     required this.greenCoins,
+    required this.streak,
     required this.farmerName,
     required this.onShowProfile,
     required this.onAddCoins,
@@ -765,7 +806,7 @@ class _DashboardViewState extends State<_DashboardView> {
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
               child: Row(children: [
-                _progressCard("Today's Streak", '0 Days', 'Start your streak! 🔥', Icons.local_fire_department, Colors.orange),
+                _progressCard("Today's Streak", '${widget.streak} Days', widget.streak > 0 ? 'Keep it up! 🔥' : 'Start your streak!', Icons.local_fire_department, Colors.orange),
                 const SizedBox(width: 14),
                 _progressCard('Quizzes Done', '${widget.completedQuizzesCount}', 'Complete to earn coins', Icons.assignment_turned_in, _kGreen),
                 const SizedBox(width: 14),
