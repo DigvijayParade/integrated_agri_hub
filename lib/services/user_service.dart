@@ -176,6 +176,7 @@ class UserService {
         'quizzesCompleted': FieldValue.increment(1),
         'greenCoins': FieldValue.increment(100),
       });
+      await updateStreakAfterActivity();
     } catch (e) {
       if (kDebugMode) print('UserService.recordQuizCompletion error: $e');
     }
@@ -197,14 +198,21 @@ class UserService {
   }
 
   /// Call after rewarding a task.
-  Future<void> recordTaskCompletion(int coinsReward) async {
+  Future<void> recordTaskCompletion(String taskId, int coinsReward, bool giveReward) async {
     final uid = currentUid;
     if (uid == null) return;
     try {
-      await _db.collection('users').doc(uid).update({
-        'lastTaskRewardDate': _today,
-        'greenCoins': FieldValue.increment(coinsReward),
-      });
+      final updates = <String, dynamic>{
+        'completedTasks': FieldValue.arrayUnion([taskId]),
+      };
+      
+      if (giveReward) {
+        updates['lastTaskRewardDate'] = _today;
+        updates['greenCoins'] = FieldValue.increment(coinsReward);
+      }
+      
+      await _db.collection('users').doc(uid).update(updates);
+      await updateStreakAfterActivity();
     } catch (e) {
       if (kDebugMode) print('UserService.recordTaskCompletion error: $e');
     }

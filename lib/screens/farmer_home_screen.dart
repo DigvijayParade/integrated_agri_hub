@@ -10,6 +10,7 @@ import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
 import 'package:integrated_agri_hub/screens/education_feed_screen.dart';
 import 'package:integrated_agri_hub/services/user_service.dart';
 import 'package:integrated_agri_hub/services/admin_service.dart';
+import 'package:integrated_agri_hub/services/ai_service.dart';
 import 'package:image_picker/image_picker.dart';
 
 const _kGreen = Color(0xFF4A7C59);
@@ -33,6 +34,8 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   int _greenCoins = 0;
   int _streak = 0;
   int _quizzesCompleted = 0;
+  List<String> _completedTasks = [];
+  List<AppNotification> _notifications = [];
   final List<Map<String, dynamic>> _transactions = [];
 
   List<String> _registeredCrops = [];
@@ -41,7 +44,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   String _farmerState = '';
   final List<Quiz> _archivedQuizzes = [];
 
-  List<AppNotification> _notifications = [];
+
   Timer? _notificationTimer;
 
   @override
@@ -66,6 +69,9 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
         _quizzesCompleted = data['quizzesCompleted'] as int? ?? 0;
         if (data['selectedCrops'] != null) {
           _registeredCrops = List<String>.from(data['selectedCrops']);
+        }
+        if (data['completedTasks'] != null) {
+          _completedTasks = List<String>.from(data['completedTasks']);
         }
       });
     });
@@ -95,6 +101,10 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   void _addCoins(int amount, String reason) async {
     // Save to Firestore (stream will update UI automatically)
     await _userService.addCoins(amount);
+    _logTransaction(amount, reason);
+  }
+
+  void _logTransaction(int amount, String reason) {
     if (mounted) {
       final now = DateTime.now();
       final dt = '${now.day} ${_monthName(now.month)} ${now.year}, ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -122,8 +132,10 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           streak: _streak,
           farmerName: _farmerName,
           registeredCrops: _registeredCrops,
+          completedTasks: _completedTasks,
           onShowProfile: () => _showProfileModal(context, _greenCoins, _transactions, _registeredCrops, (c) => setState(() => _registeredCrops = c)),
           onAddCoins: _addCoins,
+          onLogTransaction: _logTransaction,
           completedQuizzesCount: _quizzesCompleted,
           notifications: _notifications,
           onOpenNotifications: () {
@@ -706,8 +718,10 @@ class _DashboardView extends StatefulWidget {
   final int streak;
   final String farmerName;
   final List<String> registeredCrops;
+  final List<String> completedTasks;
   final VoidCallback onShowProfile;
   final void Function(int, String) onAddCoins;
+  final void Function(int, String) onLogTransaction;
   final int completedQuizzesCount;
   final List<AppNotification> notifications;
   final VoidCallback onOpenNotifications;
@@ -717,8 +731,10 @@ class _DashboardView extends StatefulWidget {
     required this.streak,
     required this.farmerName,
     required this.registeredCrops,
+    required this.completedTasks,
     required this.onShowProfile,
     required this.onAddCoins,
+    required this.onLogTransaction,
     required this.completedQuizzesCount,
     required this.notifications,
     required this.onOpenNotifications,
@@ -768,7 +784,7 @@ class _DashboardViewState extends State<_DashboardView> {
               description: d['description'] ?? '',
               reward: d['coinsReward'] as int? ?? 0,
             );
-          }).toList();
+          }).where((task) => !widget.completedTasks.contains(task.id)).toList();
           _tasksLoading = false;
         });
       }
@@ -1011,12 +1027,60 @@ class _DashboardViewState extends State<_DashboardView> {
                           task.status = 'Pending Verification';
                           task.mockImagePath = photo.path;
                         });
+                        
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Proof photo captured via Camera! Submitted for verification.'),
+                            content: Text('Photo captured! Verifying with Gemini AI...'),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
+                        
+                        // Call Gemini Verification
+                        final verified = await AiService().verifyTaskPhoto(photo.path, task.description);
+                        
+                        if (mounted) {
+                          if (verified) {
+                            bool canEarn = await UserService().canEarnTaskRewardToday();
+                            await UserService().recordTaskCompletion(task.id, task.reward, canEarn);
+                            
+                            setState(() {
+                              task.status = 'Approved';
+                              // If they couldn't earn, it will disappear from UI when stream updates, 
+                              // but let's visually mark it approved for a moment.
+                            });
+                            
+                            if (canEarn) {
+                              widget.onLogTransaction(task.reward, 'Task Verified: ${task.title}');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('AI Verification Success! Task Approved. +${task.reward} Coins!'),
+                                  backgroundColor: _kGreen,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Task Verified! (Daily reward already claimed today)'),
+                                  backgroundColor: _kGreen,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          } else {
+                            setState(() {
+                              task.status = 'Not Started'; // Reset so they can try again
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('AI Verification Failed. Photo does not match task description. Please try again.'),
+                                backgroundColor: Colors.redAccent,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                        }
                       }
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1036,20 +1100,16 @@ class _DashboardViewState extends State<_DashboardView> {
                   ),
                 )
               else if (task.status == 'Pending Verification')
-                Flexible(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        task.status = 'Approved';
-                      });
-                      widget.onAddCoins(task.reward, 'Task Approved: ${task.title}');
-                    },
-                    icon: const Icon(Icons.gavel, size: 16, color: Colors.white),
-                    label: const Text('Approve (Mock)', style: TextStyle(color: Colors.white, fontSize: 11), overflow: TextOverflow.ellipsis),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                const Flexible(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange)),
+                        SizedBox(width: 8),
+                        Text('AI Verifying...', style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
                     ),
                   ),
                 )
