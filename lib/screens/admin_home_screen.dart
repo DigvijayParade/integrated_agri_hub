@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/admin_service.dart';
 import '../widgets/youtube_player_widget.dart';
 import 'welcome_screen.dart';
@@ -41,7 +42,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _adminService.addListener(_onAdminServiceChange);
     _loadCropEduData(_selectedCrop);
   }
@@ -153,14 +154,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           unselectedLabelColor: Colors.white60,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           tabs: const [
-            Tab(
-              icon: Icon(Icons.currency_rupee),
-              text: 'Market Prices Control',
-            ),
-            Tab(
-              icon: Icon(Icons.video_collection_outlined),
-              text: 'Education & Media Hub',
-            ),
+            Tab(icon: Icon(Icons.currency_rupee), text: 'Market Prices'),
+            Tab(icon: Icon(Icons.video_collection_outlined), text: 'Education'),
+            Tab(icon: Icon(Icons.assignment_outlined), text: 'Tasks'),
           ],
         ),
       ),
@@ -169,6 +165,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         children: [
           _buildMarketPriceTab(prices),
           _buildEducationMediaTab(),
+          _buildTasksTab(),
         ],
       ),
     );
@@ -886,6 +883,202 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
           ),
         ],
       ),
+    );
+  }
+
+  // ─── TAB 3: TASKS MANAGEMENT ───────────────────────────────────
+  Widget _buildTasksTab() {
+    final _taskTitleController = TextEditingController();
+    final _taskDescController  = TextEditingController();
+    final _taskCoinsController = TextEditingController();
+    String? _taskCrop = _cropOptions.first;
+
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Publish New Task Card ──
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(children: [
+                      Icon(Icons.add_task, color: Color(0xFF1E3A8A)),
+                      SizedBox(width: 8),
+                      Text('Publish New Task', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                    ]),
+                    const SizedBox(height: 20),
+                    // Crop selector
+                    DropdownButtonFormField<String>(
+                      value: _taskCrop,
+                      decoration: _inputDecor('Select Crop', Icons.eco_outlined),
+                      items: _cropOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (v) => setLocal(() => _taskCrop = v),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _taskTitleController,
+                      decoration: _inputDecor('Task Title', Icons.title),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _taskDescController,
+                      maxLines: 3,
+                      decoration: _inputDecor('Task Description', Icons.description_outlined),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _taskCoinsController,
+                      keyboardType: TextInputType.number,
+                      decoration: _inputDecor('Green Coin Reward', Icons.monetization_on_outlined),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.publish, color: Colors.white),
+                        label: const Text('Publish Task', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        onPressed: () async {
+                          final title = _taskTitleController.text.trim();
+                          final desc  = _taskDescController.text.trim();
+                          final coins = int.tryParse(_taskCoinsController.text.trim()) ?? 0;
+                          if (title.isEmpty || desc.isEmpty || coins <= 0 || _taskCrop == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please fill all fields'), backgroundColor: Colors.redAccent),
+                            );
+                            return;
+                          }
+                          try {
+                            await FirebaseFirestore.instance.collection('tasks').add({
+                              'crop': _taskCrop,
+                              'title': title,
+                              'description': desc,
+                              'coinsReward': coins,
+                              'publishedAt': FieldValue.serverTimestamp(),
+                              'active': true,
+                            });
+                            _taskTitleController.clear();
+                            _taskDescController.clear();
+                            _taskCoinsController.clear();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Task published for $_taskCrop!'), backgroundColor: Colors.green.shade700),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // ── Live Tasks List ──
+              const Text('Published Tasks', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+              const SizedBox(height: 12),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('tasks')
+                    .orderBy('publishedAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                      child: const Center(child: Text('No tasks published yet.', style: TextStyle(color: Colors.black45))),
+                    );
+                  }
+                  return Column(
+                    children: snapshot.data!.docs.map((doc) {
+                      final d = doc.data() as Map<String, dynamic>;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
+                                      child: Text(d['crop'] ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(8)),
+                                      child: Text('+${d['coinsReward']} coins', style: const TextStyle(fontSize: 11, color: Color(0xFFB8860B), fontWeight: FontWeight.bold)),
+                                    ),
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  Text(d['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                  const SizedBox(height: 4),
+                                  Text(d['description'] ?? '', style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                              tooltip: 'Delete Task',
+                              onPressed: () async {
+                                await FirebaseFirestore.instance.collection('tasks').doc(doc.id).delete();
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  InputDecoration _inputDecor(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: const Color(0xFF1E3A8A)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF1E3A8A), width: 2),
+      ),
+      filled: true,
+      fillColor: const Color(0xFFF4F6F9),
     );
   }
 }

@@ -121,6 +121,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           greenCoins: _greenCoins,
           streak: _streak,
           farmerName: _farmerName,
+          registeredCrops: _registeredCrops,
           onShowProfile: () => _showProfileModal(context, _greenCoins, _transactions, _registeredCrops, (c) => setState(() => _registeredCrops = c)),
           onAddCoins: _addCoins,
           completedQuizzesCount: _quizzesCompleted,
@@ -704,6 +705,7 @@ class _DashboardView extends StatefulWidget {
   final int greenCoins;
   final int streak;
   final String farmerName;
+  final List<String> registeredCrops;
   final VoidCallback onShowProfile;
   final void Function(int, String) onAddCoins;
   final int completedQuizzesCount;
@@ -714,6 +716,7 @@ class _DashboardView extends StatefulWidget {
     required this.greenCoins,
     required this.streak,
     required this.farmerName,
+    required this.registeredCrops,
     required this.onShowProfile,
     required this.onAddCoins,
     required this.completedQuizzesCount,
@@ -726,7 +729,53 @@ class _DashboardView extends StatefulWidget {
 }
 
 class _DashboardViewState extends State<_DashboardView> {
-  final List<TaskItem> _tasks = [];
+  List<TaskItem> _tasks = [];
+  bool _tasksLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasksFromFirestore();
+  }
+
+  @override
+  void didUpdateWidget(_DashboardView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload tasks if crops changed
+    if (oldWidget.registeredCrops != widget.registeredCrops) {
+      _loadTasksFromFirestore();
+    }
+  }
+
+  void _loadTasksFromFirestore() async {
+    if (widget.registeredCrops.isEmpty) {
+      if (mounted) setState(() { _tasks = []; _tasksLoading = false; });
+      return;
+    }
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('tasks')
+          .where('crop', whereIn: widget.registeredCrops)
+          .where('active', isEqualTo: true)
+          .get();
+      if (mounted) {
+        setState(() {
+          _tasks = snapshot.docs.map((doc) {
+            final d = doc.data();
+            return TaskItem(
+              id: doc.id,
+              title: d['title'] ?? '',
+              description: d['description'] ?? '',
+              reward: d['coinsReward'] as int? ?? 0,
+            );
+          }).toList();
+          _tasksLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _tasksLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -812,8 +861,8 @@ class _DashboardViewState extends State<_DashboardView> {
                 const SizedBox(width: 14),
                 _progressCard(
                   'Tasks Pending', 
-                  '0', 
-                  'Tasks assigned by admin', 
+                  '${_tasks.where((t) => t.status != 'Approved').length}', 
+                  'Complete for rewards', 
                   Icons.pending_actions, 
                   Colors.blueAccent,
                 ),
@@ -824,7 +873,12 @@ class _DashboardViewState extends State<_DashboardView> {
             // Real-life Tasks Window
             const Text('Real-Life Tasks & Rewards', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _kDarkGreen)),
             const SizedBox(height: 12),
-            if (_tasks.isEmpty)
+            if (_tasksLoading)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(color: _kGreen),
+              ))
+            else if (_tasks.isEmpty)
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
@@ -834,7 +888,7 @@ class _DashboardViewState extends State<_DashboardView> {
                     SizedBox(height: 12),
                     Text('No tasks assigned yet', style: TextStyle(color: Colors.black45, fontSize: 15)),
                     SizedBox(height: 4),
-                    Text('Admin will assign tasks to you soon', style: TextStyle(color: Colors.black38, fontSize: 13)),
+                    Text('Admin will assign tasks for your crops soon', style: TextStyle(color: Colors.black38, fontSize: 13)),
                   ]),
                 ),
               )
