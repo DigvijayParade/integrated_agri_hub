@@ -29,9 +29,29 @@
 ## What Is Pending (Where to Resume)
 
 ### Phase 3.6: AI Quiz Generator
-- **Status**: Not Started (Model extracted to `lib/models/quiz.dart`).
-- **Goal**: Implement Gemini AI to dynamically generate 10-question quizzes based on the farmer's selected crops.
-- **Rules**: Reward 100 coins for completing the quiz, restricted to 1 rewarded quiz per day.
+- **Status**: Completed.
+- **Implementation**: `AiService` uses the `gemini-1.5-flash` model with a JSON-mode prompt to generate a 10-question multiple-choice quiz about farming best practices for a specific crop.
+- **Rules & Logic**: 
+  - Dynamic generation: Farmers see a "Generate AI Challenge" button for every crop they have registered.
+  - Passing score: Farmers must score at least 50% to pass the quiz.
+  - Rewards: Passing grants +100 Green Coins.
+  - Limit: Restricted to earning the quiz reward only **1 time per day** to prevent abuse.
+
+### Phase 3.7: UI & Validation Bug Fixes (Testing Feedback)
+- **Status**: ✅ COMPLETED.
+- Fixed email/password validators, hardcoded profiles (Rajesh Patil / Balaji Agri Store), quiz loading state, Gemini JSON parsing, url_launcher for video/audio.
+
+### Phase 3.8: Round 2 Bug Fixes (Post-Review Testing)
+- **Status**: 🔴 NOT STARTED — PRIORITY BEFORE NEXT REVIEW.
+- **Bug List:**
+  1. **[CRITICAL] Gemini API Model Error**: Quiz generation fails with error: `models/gemini-1.5-flash is not found for API version v1beta`. Model name needs to be updated to the correct currently supported model (e.g. `gemini-1.5-flash-latest` or `gemini-pro`).
+  2. **[HIGH] Farmer Registration — District & Field Size Selection**: During signup, farmer cannot select their district or enter their field size. These fields must be added to the signup form AND saved to Firestore so they display correctly on the profile ID card.
+  3. **[HIGH] Back Button After Login Goes to Registration**: After logging in, pressing the Android back button takes the user back to the registration/welcome screen. Navigation stack must be cleared on login so the farmer stays logged in until they explicitly tap "Logout".
+  4. **[HIGH] Email Validation for Farmer & Shopkeeper**: Email format validation (RegExp) may not be working correctly on both signup screens. Must be re-verified and confirmed to block bad emails like `abc` or `test@`.
+  5. **[MEDIUM] Shopkeeper — Green Coin Wallet Missing**: The shopkeeper profile has no Green Coin Wallet section. Since shopkeepers handle coin redemptions from farmers, they should see a running balance of coins received/processed.
+  6. **[MEDIUM] Farmer Data Persistence After Logout/Login**: Verify that Firestore correctly saves and restores all farmer stats — green coins, streak, completed quizzes, tasks — when the farmer logs out and logs back in.
+  7. **[FUTURE] Admin — Active Subsidies & Discounts Tab**: Admin should be able to publish active government subsidies and discounts. Farmers will see these on their dashboard. (New feature to be built in a later phase.)
+
 
 ### Phase 4: Market Tab & CSV Upload
 - **Status**: Not Started.

@@ -42,20 +42,31 @@ class FirebaseAuthService {
     return _auth.currentUser;
   }
 
-  // Save User Profile to Firestore
-  Future<void> saveUserProfile(String uid, Map<String, dynamic> userData) async {
+  // Save User Profile to Firestore — collection can be 'farmers', 'shopkeepers', or 'users'
+  Future<void> saveUserProfile(String uid, Map<String, dynamic> userData, {String collection = 'users'}) async {
     try {
-      await _firestore.collection('users').doc(uid).set(userData);
+      await _firestore.collection(collection).doc(uid).set(userData);
     } catch (e) {
       if (kDebugMode) print("Firestore Save Error: $e");
       rethrow;
     }
   }
 
-  // Fetch User Role from Firestore
+  // Fetch User Role from Firestore — checks farmers and shopkeepers collections first
   Future<String?> getUserRole(String uid) async {
     try {
-      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      // Check 'farmers' collection first
+      DocumentSnapshot doc = await _firestore.collection('farmers').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        return (doc.data() as Map<String, dynamic>)['role'] as String?;
+      }
+      // Then check 'shopkeepers' collection
+      doc = await _firestore.collection('shopkeepers').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        return (doc.data() as Map<String, dynamic>)['role'] as String?;
+      }
+      // Fallback to old 'users' collection (for existing test accounts)
+      doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
         return (doc.data() as Map<String, dynamic>)['role'] as String?;
       }

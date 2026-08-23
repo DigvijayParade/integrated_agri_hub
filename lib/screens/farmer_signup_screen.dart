@@ -21,12 +21,21 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
   bool _isLoading = false;
 
   String? _selectedState;
+  String? _selectedDistrict;
+  final TextEditingController _fieldSizeController = TextEditingController();
+
   final List<String> _states = ['Maharashtra', 'Punjab', 'Kerala'];
 
   final Map<String, List<String>> _cropsMap = {
     'Maharashtra': ["Soybean", "Cotton", "Sugarcane", "Rice", "Wheat", "Tur (Pigeon Pea)", "Jowar", "Bajra", "Onions", "Grapes", "Mangoes"],
     'Punjab': ['Wheat', 'Rice', 'Maize', 'Mustard', 'Cotton', 'Sugarcane', 'Barley', 'Sunflower'],
     'Kerala': ['Coconut', 'Spices', 'Rubber', 'Coffee', 'Rice', 'Tapioca', 'Arecanut', 'Banana'],
+  };
+
+  final Map<String, List<String>> _districtsMap = {
+    'Maharashtra': ['Pune', 'Nashik', 'Aurangabad', 'Nagpur', 'Amravati', 'Solapur', 'Kolhapur', 'Satara', 'Sangli', 'Latur', 'Nanded', 'Osmanabad'],
+    'Punjab': ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Hoshiarpur', 'Gurdaspur', 'Firozpur', 'Moga', 'Faridkot'],
+    'Kerala': ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Thrissur', 'Kollam', 'Kannur', 'Malappuram', 'Palakkad', 'Alappuzha', 'Idukki'],
   };
 
   final Set<String> _selectedCrops = {};
@@ -50,17 +59,20 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
       final User? user = await _authService.signUpWithEmailAndPassword(email, pwd);
 
       if (user != null) {
+        // Save to dedicated 'farmers' collection
         await _authService.saveUserProfile(user.uid, {
           'role': 'farmer',
           'fullName': name,
           'email': email,
           'state': _selectedState,
+          'district': _selectedDistrict,
+          'fieldSize': _fieldSizeController.text.trim().isEmpty ? null : double.tryParse(_fieldSizeController.text.trim()),
           'selectedCrops': _selectedCrops.toList(),
           'greenCoins': 0,
           'streak': 0,
           'quizzesCompleted': 0,
           'createdAt': DateTime.now().toIso8601String(),
-        });
+        }, collection: 'farmers');
 
         _showSnack('Account created successfully!', const Color(0xFF4A7C59));
 
@@ -90,6 +102,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _fieldSizeController.dispose();
     super.dispose();
   }
 
@@ -143,7 +156,8 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Enter your email';
-                        if (!v.contains('@')) return 'Enter a valid email address';
+                        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                        if (!emailRegex.hasMatch(v.trim())) return 'Enter a valid email address';
                         return null;
                       },
                     ),
@@ -161,12 +175,32 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                       onChanged: (value) {
                         setState(() {
                           _selectedState = value;
+                          _selectedDistrict = null; // reset district on state change
                           _selectedCrops.clear();
                         });
                       },
                       validator: (v) => v == null ? 'Please select your state' : null,
                     ),
                     if (_selectedState != null) ...[
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _selectedDistrict,
+                        decoration: _buildInputDecoration('Select District', Icons.location_city_outlined),
+                        items: (_districtsMap[_selectedState] ?? []).map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                        onChanged: (value) => setState(() => _selectedDistrict = value),
+                        validator: (v) => v == null ? 'Please select your district' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _fieldSizeController,
+                        decoration: _buildInputDecoration('Field Size (in Acres)', Icons.square_foot_outlined),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return null; // Optional field
+                          if (double.tryParse(v) == null) return 'Enter a valid number';
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 16),
                       const Text('Select Your Crops', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2A5934))),
                       const SizedBox(height: 12),
@@ -208,6 +242,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
                       decoration: _buildInputDecoration('Password', Icons.lock_outline).copyWith(
+                        helperText: 'Must be 8+ chars with 1 upper, 1 digit, 1 special',
                         suffixIcon: IconButton(
                           icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
                           onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
@@ -215,7 +250,14 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Enter a password';
-                        if (v.length < 6) return 'Password must be at least 6 characters';
+                        if (v.length < 8) return 'Password must be at least 8 characters';
+                        final hasUpper = v.contains(RegExp(r'[A-Z]'));
+                        final hasLower = v.contains(RegExp(r'[a-z]'));
+                        final hasDigit = v.contains(RegExp(r'[0-9]'));
+                        final hasSpecial = v.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+                        if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+                          return 'Required: 1 upper, 1 lower, 1 digit, 1 special';
+                        }
                         return null;
                       },
                     ),
@@ -268,7 +310,7 @@ class _FarmerSignupScreenState extends State<FarmerSignupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 16, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

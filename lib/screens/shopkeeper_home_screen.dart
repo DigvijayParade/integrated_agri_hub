@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
+import 'package:integrated_agri_hub/services/user_service.dart';
+import 'package:integrated_agri_hub/services/translation_service.dart';
 
 const _kGreen = Color(0xFF4A7C59);
 const _kDarkGreen = Color(0xFF2A5934);
@@ -17,8 +19,13 @@ class ShopkeeperHomeScreen extends StatefulWidget {
 class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
   int _currentIndex = 0;
   String _shopName = 'Loading...';
+  String _shopEmail = '';
+  String _shopState = '';
+  String _shopAddress = '';
+  String _shopLicense = '';
 
-  double _todaySales = 12450.0;
+  double _todaySales = 0.0;
+  int _greenCoinsReceived = 0;
 
   @override
   void initState() {
@@ -29,11 +36,20 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
   void _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      // Check shopkeepers collection first, fallback to users
+      var doc = await FirebaseFirestore.instance.collection('shopkeepers').doc(user.uid).get();
+      if (!doc.exists) {
+        doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      }
       if (mounted && doc.exists && doc.data() != null) {
         final data = doc.data()!;
         setState(() {
           _shopName = data['fullName'] ?? 'Shopkeeper';
+          _shopEmail = data['email'] ?? user.email ?? '';
+          _shopState = data['state'] ?? 'Maharashtra';
+          _shopAddress = data['shopAddress'] ?? '';
+          _shopLicense = data['shopLicense'] ?? '';
+          _greenCoinsReceived = (data['greenCoinsReceived'] as num?)?.toInt() ?? 0;
         });
       }
     }
@@ -50,7 +66,15 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
 
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
-      case 0: return _HomeView(todaySales: _todaySales, shopName: _shopName);
+      case 0: return _HomeView(
+          todaySales: _todaySales,
+          shopName: _shopName,
+          shopEmail: _shopEmail,
+          shopState: _shopState,
+          shopAddress: _shopAddress,
+          shopLicense: _shopLicense,
+          greenCoinsReceived: _greenCoinsReceived,
+        );
       case 1: return const _InventoryView();
       case 2: return _LedgerView(entries: _ledgerEntries, onAddEntry: _addLedgerEntry);
       case 3: return const _ScanSubsidyView();
@@ -60,26 +84,31 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _kCream,
-      body: _buildCurrentScreen(),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        elevation: 12,
-        shadowColor: Colors.black26,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home_outlined, Icons.home, 'Home', 0),
-              _buildNavItem(Icons.inventory_2_outlined, Icons.inventory_2, 'Inventory', 1),
-              _buildNavItem(Icons.menu_book_outlined, Icons.menu_book, 'Ledger', 2),
-              _buildNavItem(Icons.qr_code_scanner_outlined, Icons.qr_code_scanner, 'Scan', 3),
-            ],
+    return ListenableBuilder(
+      listenable: TranslationService(),
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: _kCream,
+          body: _buildCurrentScreen(),
+          bottomNavigationBar: BottomAppBar(
+            color: Colors.white,
+            elevation: 12,
+            shadowColor: Colors.black26,
+            child: SizedBox(
+              height: 64,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(Icons.home_outlined, Icons.home, TranslationService.tr('home'), 0),
+                  _buildNavItem(Icons.inventory_2_outlined, Icons.inventory_2, TranslationService.tr('inventory'), 1),
+                  _buildNavItem(Icons.menu_book_outlined, Icons.menu_book, TranslationService.tr('ledger'), 2),
+                  _buildNavItem(Icons.qr_code_scanner_outlined, Icons.qr_code_scanner, TranslationService.tr('scan'), 3),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -108,7 +137,15 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
   }
 }
 
-void _showShopkeeperProfile(BuildContext context) {
+void _showShopkeeperProfile({
+  required BuildContext context,
+  required String shopName,
+  required String shopEmail,
+  required String shopState,
+  required String shopAddress,
+  required String shopLicense,
+  required int greenCoinsReceived,
+}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -119,14 +156,37 @@ void _showShopkeeperProfile(BuildContext context) {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
-      builder: (_, sc) => _ShopkeeperProfileModal(scrollController: sc),
+      builder: (_, sc) => _ShopkeeperProfileModal(
+        scrollController: sc,
+        shopName: shopName,
+        shopEmail: shopEmail,
+        shopState: shopState,
+        shopAddress: shopAddress,
+        shopLicense: shopLicense,
+        greenCoinsReceived: greenCoinsReceived,
+      ),
     ),
   );
 }
 
 class _ShopkeeperProfileModal extends StatefulWidget {
   final ScrollController? scrollController;
-  const _ShopkeeperProfileModal({this.scrollController});
+  final String shopName;
+  final String shopEmail;
+  final String shopState;
+  final String shopAddress;
+  final String shopLicense;
+  final int greenCoinsReceived;
+
+  const _ShopkeeperProfileModal({
+    this.scrollController,
+    required this.shopName,
+    required this.shopEmail,
+    required this.shopState,
+    required this.shopAddress,
+    required this.shopLicense,
+    required this.greenCoinsReceived,
+  });
 
   @override
   State<_ShopkeeperProfileModal> createState() => _ShopkeeperProfileModalState();
@@ -134,15 +194,40 @@ class _ShopkeeperProfileModal extends StatefulWidget {
 
 class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
   bool _isEditing = false;
-  String _selectedState = 'Maharashtra';
+  late String _selectedState;
   final _states = ['Maharashtra', 'Punjab', 'Kerala', 'Other'];
-  
-  final _addressCtrl = TextEditingController(text: '123 Market Road, Main Bazar');
+  late TextEditingController _addressCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedState = widget.shopState;
+    _addressCtrl = TextEditingController(text: widget.shopAddress);
+  }
 
   @override
   void dispose() {
     _addressCtrl.dispose();
     super.dispose();
+  }
+
+  void _saveProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance.collection('shopkeepers').doc(user.uid).update({
+        'state': _selectedState,
+        'shopAddress': _addressCtrl.text.trim(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Store profile updated successfully!'),
+            backgroundColor: _kGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _showQr(BuildContext context) {
@@ -157,7 +242,7 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
             const SizedBox(height: 24),
             Container(width: 200, height: 200, color: Colors.black, child: const Icon(Icons.qr_code, color: Colors.white, size: 150)),
             const SizedBox(height: 24),
-            const Text('Scan this to place a direct order with Balaji Agri Store.', textAlign: TextAlign.center, style: TextStyle(color: Colors.black54)),
+            Text('Scan this to place a direct order with ${widget.shopName}.', textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54)),
           ],
         ),
       ),
@@ -170,7 +255,7 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (title != null) ...[
@@ -223,7 +308,12 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text('Shopkeeper Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
               TextButton.icon(
-                onPressed: () => setState(() => _isEditing = !_isEditing),
+                onPressed: () {
+                  if (_isEditing) {
+                    _saveProfile();
+                  }
+                  setState(() => _isEditing = !_isEditing);
+                },
                 icon: Icon(_isEditing ? Icons.check_circle : Icons.edit, size: 16, color: _kGreen),
                 label: Text(_isEditing ? 'Save' : 'Edit Profile', style: const TextStyle(color: _kGreen, fontWeight: FontWeight.w600)),
               ),
@@ -237,18 +327,18 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Text('Balaji Agri Store', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+                  Text(widget.shopName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
                   IconButton(
                     icon: const Icon(Icons.qr_code, color: _kGreen, size: 22),
                     onPressed: () => _showQr(context),
                     padding: EdgeInsets.zero, constraints: const BoxConstraints(),
                   ),
                 ]),
-                const Text('+91 98765 43211', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                Text(widget.shopEmail, style: const TextStyle(fontSize: 13, color: Colors.black54)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20), border: Border.all(color: _kGreen.withOpacity(0.4))),
+                  decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20), border: Border.all(color: _kGreen.withValues(alpha: 0.4))),
                   child: const Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.verified_user, size: 12, color: _kGreen), SizedBox(width: 4),
                     Text('License Verified', style: TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.w600)),
@@ -286,21 +376,51 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
                   const Expanded(flex: 1, child: Text('Address', style: TextStyle(color: Colors.black54, fontSize: 13))),
                   Expanded(flex: 2, child: TextField(controller: _addressCtrl, style: const TextStyle(fontWeight: FontWeight.bold, color: _kDarkGreen, fontSize: 13), textAlign: TextAlign.right, decoration: const InputDecoration(isDense: true))),
                 ])
-              : _infoRow(Icons.location_on_outlined, 'Address', _addressCtrl.text),
+              : _infoRow(Icons.location_on_outlined, 'Address', _addressCtrl.text.isEmpty ? 'Not Provided' : _addressCtrl.text),
             const Divider(height: 20),
-            _infoRow(Icons.assignment_outlined, 'License Number', '#MH-AGR-89201'),
+            _infoRow(Icons.assignment_outlined, 'License Number', widget.shopLicense.isEmpty ? 'Not Provided' : widget.shopLicense),
             const Divider(height: 20),
             _infoRow(Icons.people_outline, 'Connected Farmers', '142 Active'),
           ]),
+
+          // 🌿 Green Coin Wallet Card
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF4A7C59)]),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 52, height: 52,
+                  decoration: BoxDecoration(color: Colors.white.withAlpha(40), shape: BoxShape.circle),
+                  child: const Icon(Icons.eco, color: Colors.white, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Green Coin Wallet', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    Text('${widget.greenCoinsReceived} Coins', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    const Text('Coins received from farmer redemptions', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                  ]),
+                ),
+              ],
+            ),
+          ),
 
           _card(children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
+              onTap: () async {
+                UserService().clearCache();
+                await FirebaseAuth.instance.signOut();
+                // AuthGate will automatically redirect to WelcomeScreen
               },
             ),
           ]),
@@ -314,7 +434,21 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
 class _HomeView extends StatelessWidget {
   final double todaySales;
   final String shopName;
-  const _HomeView({required this.todaySales, required this.shopName});
+  final String shopEmail;
+  final String shopState;
+  final String shopAddress;
+  final String shopLicense;
+  final int greenCoinsReceived;
+
+  const _HomeView({
+    required this.todaySales,
+    required this.shopName,
+    required this.shopEmail,
+    required this.shopState,
+    required this.shopAddress,
+    required this.shopLicense,
+    required this.greenCoinsReceived,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +462,15 @@ class _HomeView extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 GestureDetector(
-                  onTap: () => _showShopkeeperProfile(context),
+                  onTap: () => _showShopkeeperProfile(
+                    context: context,
+                    shopName: shopName,
+                    shopEmail: shopEmail,
+                    shopState: shopState,
+                    shopAddress: shopAddress,
+                    shopLicense: shopLicense,
+                    greenCoinsReceived: greenCoinsReceived,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -339,7 +481,15 @@ class _HomeView extends StatelessWidget {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => _showShopkeeperProfile(context),
+                  onTap: () => _showShopkeeperProfile(
+                    context: context,
+                    shopName: shopName,
+                    shopEmail: shopEmail,
+                    shopState: shopState,
+                    shopAddress: shopAddress,
+                    shopLicense: shopLicense,
+                    greenCoinsReceived: greenCoinsReceived,
+                  ),
                   child: const CircleAvatar(
                     backgroundColor: _kLightGreen,
                     radius: 24,
@@ -354,6 +504,8 @@ class _HomeView extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: _metricCard('Today\'s Sales', '\u20b9 ${todaySales.toStringAsFixed(0)}', Icons.trending_up, Colors.orange)),
+                const SizedBox(width: 12),
+                Expanded(child: _metricCard('Green Coins', '$greenCoinsReceived 🌿', Icons.eco, _kGreen)),
               ],
             ),
             const SizedBox(height: 32),
@@ -365,8 +517,8 @@ class _HomeView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white, borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _kGreen.withOpacity(0.3)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
+                border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]
               ),
               child: Row(
                 children: [
@@ -403,7 +555,7 @@ class _HomeView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,8 +677,8 @@ class _InventoryViewState extends State<_InventoryView> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white, borderRadius: BorderRadius.circular(12),
-                      border: item['lowStock'] ? Border.all(color: Colors.redAccent.withOpacity(0.5)) : null,
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
+                      border: item['lowStock'] ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5)) : null,
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
                     ),
                     child: Row(
                       children: [
@@ -656,7 +808,7 @@ class _LedgerViewState extends State<_LedgerView> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white, borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

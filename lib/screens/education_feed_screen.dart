@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/crop_education_data.dart';
-import '../widgets/crop_card.dart';
+import '../services/ai_service.dart';
+import '../services/translation_service.dart';
+import '../screens/crop_detail_screen.dart';
 
 class EducationFeedScreen extends StatefulWidget {
   final List<String> selectedCrops;
@@ -12,156 +14,332 @@ class EducationFeedScreen extends StatefulWidget {
 }
 
 class _EducationFeedScreenState extends State<EducationFeedScreen> {
-  // Mock Database of all available crop education data
-  final List<CropEducationData> _allEducationData = [
-    const CropEducationData(
-      cropName: 'Cotton',
-      writtenGuideText: 'Cotton is a soft, fluffy staple fiber that grows in a boll, or protective case, around the seeds of the cotton plants of the genus Gossypium.\n\nBest Practices:\n1. Ensure well-drained soil.\n2. Maintain proper row spacing.\n3. Monitor for bollworms regularly.',
-      audioUrl: 'mock_audio_cotton.mp3',
-      relatedVideoUrls: ['vid1_cotton.mp4', 'vid2_cotton.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Soybean',
-      writtenGuideText: 'The soybean, or soya bean, is a species of legume native to East Asia, widely grown for its edible bean, which has numerous uses.\n\nBest Practices:\n1. Inoculate seeds before planting.\n2. Manage weed competition early.\n3. Harvest at the right moisture level.',
-      audioUrl: 'mock_audio_soybean.mp3',
-      relatedVideoUrls: ['vid1_soybean.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Sugarcane',
-      writtenGuideText: 'Sugarcane is a tall, perennial grass native to warm temperate to tropical regions of South Asia and Melanesia, used for sugar and ethanol production.\n\nBest Practices:\n1. Prepare deep soil tillage.\n2. Maintain optimal soil moisture during growth stages.\n3. Apply balanced N-P-K fertilizer.',
-      audioUrl: 'mock_audio_sugarcane.mp3',
-      relatedVideoUrls: ['vid1_sugarcane.mp4', 'vid2_sugarcane.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Wheat',
-      writtenGuideText: 'Wheat is a grass widely cultivated for its seed, a cereal grain which is a worldwide staple food.\n\nBest Practices:\n1. Prepare a firm seedbed.\n2. Apply nitrogen fertilizer optimally.\n3. Watch out for rust diseases.',
-      audioUrl: 'mock_audio_wheat.mp3',
-      relatedVideoUrls: ['vid1_wheat.mp4', 'vid2_wheat.mp4', 'vid3_wheat.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Rice',
-      writtenGuideText: 'Rice is the seed of the grass species Oryza sativa. As a cereal grain, it is the most widely consumed staple food for a large part of the world\'s human population.\n\nBest Practices:\n1. Maintain standing water in fields initially.\n2. Control weeds early via flooding.\n3. Harvest when grains turn golden-yellow.',
-      audioUrl: 'mock_audio_rice.mp3',
-      relatedVideoUrls: ['vid1_rice.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Maize',
-      writtenGuideText: 'Maize, also known as corn, is a cereal grain first domesticated by indigenous peoples in southern Mexico about 10,000 years ago.\n\nBest Practices:\n1. Plant in warm, well-aerated soil.\n2. Manage nitrogen levels during early stages.\n3. Ensure adequate water during pollination.',
-      audioUrl: 'mock_audio_maize.mp3',
-      relatedVideoUrls: ['vid1_maize.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Mustard',
-      writtenGuideText: 'Mustard is a cool-season crop grown for its oilseeds. The seeds are also used as spices.\n\nBest Practices:\n1. Sow during early winter.\n2. Keep spacing of 30cm between rows.\n3. Irrigate at flowering and pod filling stages.',
-      audioUrl: 'mock_audio_mustard.mp3',
-      relatedVideoUrls: ['vid1_mustard.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Coconut',
-      writtenGuideText: 'The coconut tree is a member of the palm tree family and the only living species of the genus Cocos. The term coconut can refer to the whole coconut palm, the seed, or the fruit.\n\nBest Practices:\n1. Plant in sandy loam soil.\n2. Ensure proper spacing of 7.5 meters.\n3. Apply organic manure regularly.',
-      audioUrl: 'mock_audio_coconut.mp3',
-      relatedVideoUrls: ['vid1_coconut.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Spices',
-      writtenGuideText: 'Kerala is famous for spices like Black Pepper, Cardamom, and Ginger, which thrive in humid, tropical environments.\n\nBest Practices:\n1. Use organic mulch for moisture retention.\n2. Provide partial shade for young plants.\n3. Prune regularly for pepper vines.',
-      audioUrl: 'mock_audio_spices.mp3',
-      relatedVideoUrls: ['vid1_spices.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Rubber',
-      writtenGuideText: 'Rubber trees require deep, well-drained acidic soil and a warm, humid climate for high latex yield.\n\nBest Practices:\n1. Start tapping only when trees reach 50cm girth.\n2. Apply rain-guarding during monsoons.\n3. Use recommended yield stimulants safely.',
-      audioUrl: 'mock_audio_rubber.mp3',
-      relatedVideoUrls: ['vid1_rubber.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Coffee',
-      writtenGuideText: 'Coffee is cultivated in hilly regions with moderate temperatures and heavy rainfall. Robusta and Arabica are the main types.\n\nBest Practices:\n1. Plant shade trees to protect coffee plants.\n2. Pick only ripe red cherries.\n3. Manage leaf rust disease immediately.',
-      audioUrl: 'mock_audio_coffee.mp3',
-      relatedVideoUrls: ['vid1_coffee.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Tapioca',
-      writtenGuideText: 'Tapioca is a root crop high in starch, widely grown in Kerala. It is drought-tolerant and easy to cultivate.\n\nBest Practices:\n1. Use healthy stem cuttings for planting.\n2. Harvest at 8 to 10 months.\n3. Ensure good soil drainage to prevent root rot.',
-      audioUrl: 'mock_audio_tapioca.mp3',
-      relatedVideoUrls: ['vid1_tapioca.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Arecanut',
-      writtenGuideText: 'Arecanut is an important commercial palm crop, requiring abundant water and well-drained soil.\n\nBest Practices:\n1. Provide proper drainage channels.\n2. Apply micronutrient mixtures to prevent yellow leaf disease.\n3. Shading is necessary in the early years.',
-      audioUrl: 'mock_audio_arecanut.mp3',
-      relatedVideoUrls: ['vid1_arecanut.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Banana',
-      writtenGuideText: 'Bananas require a rich soil, constant moisture, and protection from strong winds.\n\nBest Practices:\n1. Dig spacious planting pits.\n2. Provide windbreaks or staking support.\n3. Manage banana bunchy top virus.',
-      audioUrl: 'mock_audio_banana.mp3',
-      relatedVideoUrls: ['vid1_banana.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Barley',
-      writtenGuideText: 'Barley is a major cereal grain, commonly used in bread, beverages, and animal feed. It is more salt-tolerant than wheat.\n\nBest Practices:\n1. Plant in well-drained loamy soils.\n2. Control weeds early via physical or chemical means.\n3. Harvest at low moisture content.',
-      audioUrl: 'mock_audio_barley.mp3',
-      relatedVideoUrls: ['vid1_barley.mp4'],
-    ),
-    const CropEducationData(
-      cropName: 'Sunflower',
-      writtenGuideText: 'Sunflowers are grown for their seeds which yield high-quality edible oil. They require bright sunlight.\n\nBest Practices:\n1. Ensure adequate spacing for large heads.\n2. Irrigate during the critical seed development phase.\n3. Protect seeds from bird damage.',
-      audioUrl: 'mock_audio_sunflower.mp3',
-      relatedVideoUrls: ['vid1_sunflower.mp4'],
-    ),
-  ];
-
-  late List<CropEducationData> _filteredData;
+  final AiService _aiService = AiService();
+  final Map<String, CropEducationData> _cropDataCache = {};
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _filterData();
+    _loadCropsEducation();
   }
 
   @override
   void didUpdateWidget(covariant EducationFeedScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.selectedCrops != oldWidget.selectedCrops) {
-      _filterData();
+      _loadCropsEducation();
     }
   }
 
-  void _filterData() {
-    setState(() {
-      _filteredData = _allEducationData
-          .where((data) => widget.selectedCrops.contains(data.cropName))
-          .toList();
-    });
+  void _loadCropsEducation() async {
+    setState(() => _isLoading = true);
+    final crops = widget.selectedCrops.isNotEmpty
+        ? widget.selectedCrops
+        : ['Cotton', 'Soybean', 'Sugarcane', 'Wheat', 'Rice'];
+
+    for (final crop in crops) {
+      if (!_cropDataCache.containsKey(crop)) {
+        _cropDataCache[crop] = _aiService.getFallbackCropEducation(crop);
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    const primaryGreen = Color(0xFF2A5934);
+    const lightGreen = Color(0xFFE8F5E9);
+
+    final displayCrops = widget.selectedCrops.isNotEmpty
+        ? widget.selectedCrops
+        : _cropDataCache.keys.toList();
+
+    final todayTopic = AiService.getTodayTopic();
+    final todayIdx = AiService.getTodayTopicIndex() + 1;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F6F0),
       appBar: AppBar(
-        title: const Text('Crop Education Hub'),
-      ),
-      body: _filteredData.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Text(
-                  'No education modules available for your selected crops.\nPlease update your crop selection.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _filteredData.length,
-              itemBuilder: (context, index) {
-                return CropCard(cropData: _filteredData[index]);
-              },
+        backgroundColor: primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        title: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Color(0xFFFBBF24), size: 22),
+            const SizedBox(width: 8),
+            Text(
+              TranslationService.tr('education'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
+          ],
+        ),
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: primaryGreen),
+            )
+          : displayCrops.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: const BoxDecoration(
+                            color: lightGreen,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.psychology_outlined, size: 52, color: primaryGreen),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'No crops registered yet.\nPlease add crops in your Farmer Profile to see AI farming guides & video tutorials.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 15, color: Colors.black54, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Daily Rotating Topic Master Banner
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withValues(alpha: 0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.today, color: Color(0xFFFBBF24), size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'TODAY\'S SYLLABUS • DAY $todayIdx',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFBBF24),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Rotates Tomorrow',
+                                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            todayTopic['title']!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            todayTopic['focus']!,
+                            style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Your Registered Crops',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: primaryGreen,
+                          ),
+                        ),
+                        Text(
+                          '${displayCrops.length} ${displayCrops.length == 1 ? "Crop" : "Crops"} Active',
+                          style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    ...displayCrops.map((crop) {
+                      final cropData = _cropDataCache[crop] ?? _aiService.getFallbackCropEducation(crop);
+                      return _buildCropEduCard(context, cropData, todayTopic['title']!, todayIdx);
+                    }),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildCropEduCard(BuildContext context, CropEducationData cropData, String todayTopicTitle, int todayIdx) {
+    const primaryGreen = Color(0xFF2A5934);
+    const lightGreen = Color(0xFFF0F5E8);
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CropDetailScreen(cropData: cropData),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(18.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: lightGreen,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.eco, color: primaryGreen, size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              cropData.cropName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: primaryGreen,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF93C5FD)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.auto_awesome, size: 10, color: Color(0xFF1E3A8A)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'AI Verified',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E3A8A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Day $todayIdx: $todayTopicTitle',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E3A8A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.black38),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _badge(Icons.article_outlined, 'Today\'s Guide', const Color(0xFF2E7D32)),
+                  const SizedBox(width: 8),
+                  _badge(Icons.video_library_outlined, 'YouTube Video', const Color(0xFFC62828)),
+                  const SizedBox(width: 8),
+                  _badge(Icons.emoji_events_outlined, 'Daily Quiz +100', const Color(0xFFD97706)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _badge(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

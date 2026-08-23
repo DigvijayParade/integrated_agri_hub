@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:integrated_agri_hub/screens/farmer_signup_screen.dart';
 import 'package:integrated_agri_hub/screens/shopkeeper_signup_screen.dart';
 import 'package:integrated_agri_hub/screens/admin_home_screen.dart';
+import 'package:integrated_agri_hub/services/translation_service.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});
@@ -134,10 +135,10 @@ class RoleSelectionScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 12),
-              const Text(
-                'Choose Your Role',
+              Text(
+                TranslationService.tr('select_role'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF4A7C59),
@@ -145,8 +146,12 @@ class RoleSelectionScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               _buildRoleCard(
-                title: 'Farmer',
-                subtitle: 'Manage crops, view market prices & earn Green Coins',
+                title: TranslationService.tr('farmer'),
+                subtitle: TranslationService().currentLanguage == AppLanguage.hindi
+                    ? 'फसल प्रबंधन, मंडी भाव और ग्रीन कॉइन्स कमाएं'
+                    : TranslationService().currentLanguage == AppLanguage.marathi
+                        ? 'पीक व्यवस्थापन, बाजार भाव आणि ग्रीन कॉइन्स मिळवा'
+                        : 'Manage crops, view market prices & earn Green Coins',
                 icon: Icons.eco_outlined,
                 baseColor: const Color(0xFF4A7C59), // Sage green
                 backgroundColor: const Color(0xFFF2F7F2),
@@ -161,8 +166,12 @@ class RoleSelectionScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               _buildRoleCard(
-                title: 'Shopkeeper',
-                subtitle: 'Scan vouchers & manage shop ledger',
+                title: TranslationService.tr('shopkeeper'),
+                subtitle: TranslationService().currentLanguage == AppLanguage.hindi
+                    ? 'वाउचर स्कैन करें व दुकान खाता प्रबंधित करें'
+                    : TranslationService().currentLanguage == AppLanguage.marathi
+                        ? 'व्हाउचर स्कॅन करा व दुकान खाते व्यवस्थापित करा'
+                        : 'Scan vouchers & manage shop ledger',
                 icon: Icons.storefront_outlined,
                 baseColor: const Color(0xFFC7822B), // Warm amber/brown
                 backgroundColor: const Color(0xFFFDF7F0),
@@ -177,8 +186,12 @@ class RoleSelectionScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               _buildRoleCard(
-                title: 'Government Officer / Admin',
-                subtitle: 'Update mandi prices & post education videos/guides',
+                title: TranslationService.tr('admin'),
+                subtitle: TranslationService().currentLanguage == AppLanguage.hindi
+                    ? 'मंडी भाव अपडेट करें व शिक्षा गाइड प्रकाशित करें'
+                    : TranslationService().currentLanguage == AppLanguage.marathi
+                        ? 'बाजार भाव अपडेट करा व शिक्षण मार्गदर्शक प्रकाशित करा'
+                        : 'Update mandi prices & post education videos/guides',
                 icon: Icons.account_balance_outlined,
                 baseColor: const Color(0xFF1E3A8A), // Navy blue
                 backgroundColor: const Color(0xFFEFF6FF),
@@ -205,12 +218,12 @@ class RoleSelectionScreen extends StatelessWidget {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: baseColor.withOpacity(0.3),
+          color: baseColor.withValues(alpha: 0.3),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: baseColor.withOpacity(0.1),
+            color: baseColor.withValues(alpha: 0.1),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -221,8 +234,8 @@ class RoleSelectionScreen extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
-          splashColor: baseColor.withOpacity(0.15),
-          highlightColor: baseColor.withOpacity(0.05),
+          splashColor: baseColor.withValues(alpha: 0.15),
+          highlightColor: baseColor.withValues(alpha: 0.05),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -234,7 +247,7 @@ class RoleSelectionScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: baseColor.withOpacity(0.15),
+                        color: baseColor.withValues(alpha: 0.15),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -256,7 +269,7 @@ class RoleSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
-                          color: baseColor.withOpacity(0.9),
+                          color: baseColor.withValues(alpha: 0.9),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -274,7 +287,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 ),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: baseColor.withOpacity(0.6),
+                  color: baseColor.withValues(alpha: 0.6),
                   size: 18,
                 ),
               ],

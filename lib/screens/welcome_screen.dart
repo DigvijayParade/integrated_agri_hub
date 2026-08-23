@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:integrated_agri_hub/screens/role_selection_screen.dart';
 import 'package:integrated_agri_hub/screens/farmer_home_screen.dart';
 import 'package:integrated_agri_hub/screens/admin_home_screen.dart';
 import 'package:integrated_agri_hub/screens/shopkeeper_home_screen.dart';
 import 'package:integrated_agri_hub/services/firebase_auth_service.dart';
+import 'package:integrated_agri_hub/services/translation_service.dart';
 import 'package:integrated_agri_hub/theme/app_theme.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -14,8 +16,7 @@ class WelcomeScreen extends StatefulWidget {
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  String _selectedLanguage = 'English';
-  final List<String> _languages = ['Hindi', 'Marathi', 'English'];
+  final List<String> _languages = ['English', 'Hindi (हिंदी)', 'Marathi (मराठी)'];
 
   void _showLoginOverlay(BuildContext context) {
     showModalBottomSheet(
@@ -47,9 +48,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'About Integrated Agri Hub',
-                      style: TextStyle(
+                    Text(
+                      TranslationService.tr('app_name'),
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF2A5934), // Forest green
@@ -62,9 +63,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Connecting Farmers & Shopkeepers to build a sustainable agricultural ecosystem. Earn Green Coins through completed tasks and redeem them for exciting shop discounts and rewards!',
-                  style: TextStyle(
+                Text(
+                  TranslationService.tr('app_tagline'),
+                  style: const TextStyle(
                     fontSize: 15,
                     color: Colors.black87,
                     height: 1.5,
@@ -81,42 +82,43 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundCream, // Warm cream background
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedLanguage,
-                icon: const Icon(Icons.language, color: AppTheme.primaryGreen),
-                style: const TextStyle(
-                  color: AppTheme.primaryGreen,
-                  fontWeight: FontWeight.w600,
+    return ListenableBuilder(
+      listenable: TranslationService(),
+      builder: (context, _) {
+        final currentLangName = TranslationService().currentLanguageName;
+        return Scaffold(
+          backgroundColor: AppTheme.backgroundCream, // Warm cream background
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: currentLangName,
+                    icon: const Icon(Icons.language, color: AppTheme.primaryGreen),
+                    style: const TextStyle(
+                      color: AppTheme.primaryGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    dropdownColor: AppTheme.backgroundCream,
+                    items: _languages.map((String lang) {
+                      return DropdownMenuItem<String>(
+                        value: lang,
+                        child: Text(lang),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        TranslationService().setLanguage(newValue);
+                      }
+                    },
+                  ),
                 ),
-                dropdownColor: AppTheme.backgroundCream,
-                items: _languages.map((String lang) {
-                  return DropdownMenuItem<String>(
-                    value: lang,
-                    child: Text(lang),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    setState(() {
-                      _selectedLanguage = newValue;
-                    });
-                  }
-                },
               ),
-            ),
+            ],
           ),
-        ],
-      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -135,7 +137,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: AppTheme.primaryGreen.withOpacity(0.3),
+                            color: AppTheme.primaryGreen.withValues(alpha: 0.3),
                             width: 2,
                           ),
                         ),
@@ -153,7 +155,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.primaryGreen.withOpacity(0.2),
+                                color: AppTheme.primaryGreen.withValues(alpha: 0.2),
                                 blurRadius: 12,
                                 offset: const Offset(0, 6),
                               ),
@@ -169,17 +171,27 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const Text(
-                        'Integrated Agri Hub',
+                      Text(
+                        TranslationService.tr('app_name'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.primaryGreen,
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 12),
+                      Text(
+                        TranslationService.tr('app_tagline'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
                       // Log In Button
                       Container(
                         width: double.infinity,
@@ -193,7 +205,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryGreen.withOpacity(0.3),
+                              color: AppTheme.primaryGreen.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -209,9 +221,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'Log In',
-                            style: TextStyle(
+                          child: Text(
+                            TranslationService.tr('login'),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -243,9 +255,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'Sign Up',
-                            style: TextStyle(
+                          child: Text(
+                            TranslationService.tr('signup'),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -261,7 +273,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         decoration: BoxDecoration(
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
+                              color: Colors.black.withValues(alpha: 0.02),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -284,9 +296,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               ],
                             ),
                           ),
-                          label: const Text(
-                            'Login with Google',
-                            style: TextStyle(
+                          label: Text(
+                            TranslationService().currentLanguage == AppLanguage.hindi
+                                ? 'गूगल से लॉगिन करें'
+                                : TranslationService().currentLanguage == AppLanguage.marathi
+                                    ? 'गुगलसह लॉगिन करा'
+                                    : 'Login with Google',
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: Colors.black87,
@@ -319,13 +335,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 icon: const Icon(Icons.info_outline),
                 color: AppTheme.primaryGreen,
                 iconSize: 28,
-                splashColor: AppTheme.primaryGreen.withOpacity(0.2),
-                highlightColor: AppTheme.primaryGreen.withOpacity(0.1),
+                splashColor: AppTheme.primaryGreen.withValues(alpha: 0.2),
+                highlightColor: AppTheme.primaryGreen.withValues(alpha: 0.1),
               ),
             ),
           ],
         ),
       ),
+    );
+      },
     );
   }
 }
@@ -344,19 +362,36 @@ class _LoginOverlayState extends State<LoginOverlay> {
   final FirebaseAuthService _authService = FirebaseAuthService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  String? _errorMessage;
+  bool _hasLoginError = false;
+
+  void _clearErrorIfPresent() {
+    if (_hasLoginError || _errorMessage != null) {
+      setState(() {
+        _hasLoginError = false;
+        _errorMessage = null;
+      });
+    }
+  }
 
   void _handleLogin() async {
     final emailPhone = _emailPhoneController.text.trim();
     final password = _passwordController.text;
+
+    setState(() {
+      _errorMessage = null;
+      _hasLoginError = false;
+    });
 
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     if (emailPhone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields'), backgroundColor: Colors.redAccent),
-      );
+      setState(() {
+        _errorMessage = 'Please enter both email and password.';
+        _hasLoginError = true;
+      });
       return;
     }
 
@@ -373,10 +408,11 @@ class _LoginOverlayState extends State<LoginOverlay> {
 
     try {
       if (!emailPhone.contains('@')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("For Phone Number login, we need to implement OTP verification. For now, please use your Email to login."), backgroundColor: Colors.orange),
-        );
-        setState(() => _isLoading = false);
+        setState(() {
+          _errorMessage = "For Phone Number login, OTP verification is required. Please use your registered Email to log in.";
+          _hasLoginError = true;
+          _isLoading = false;
+        });
         return;
       }
 
@@ -399,11 +435,43 @@ class _LoginOverlayState extends State<LoginOverlay> {
           }
         }
       }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String friendlyMsg;
+        switch (e.code) {
+          case 'user-not-found':
+          case 'invalid-email':
+            friendlyMsg = "Couldn't find your account with this email. Please check your email or Sign Up.";
+            break;
+          case 'wrong-password':
+            friendlyMsg = "Wrong password. Please enter the correct password.";
+            break;
+          case 'invalid-credential':
+            friendlyMsg = "Entered email or password is wrong. Please enter the correct details.";
+            break;
+          case 'user-disabled':
+            friendlyMsg = "This user account has been disabled.";
+            break;
+          case 'too-many-requests':
+            friendlyMsg = "Too many failed attempts. Please try again in a few minutes.";
+            break;
+          case 'network-request-failed':
+            friendlyMsg = "Network error. Please check your internet connection.";
+            break;
+          default:
+            friendlyMsg = "Entered email or password is wrong. Please enter the correct details.";
+        }
+        setState(() {
+          _errorMessage = friendlyMsg;
+          _hasLoginError = true;
+        });
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString().split(']').last.trim()}'), backgroundColor: Colors.redAccent),
-        );
+        setState(() {
+          _errorMessage = "Entered email or password is wrong. Please enter the correct details.";
+          _hasLoginError = true;
+        });
       }
     } finally {
       if (mounted) {
@@ -421,7 +489,8 @@ class _LoginOverlayState extends State<LoginOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap in Padding with viewInsets to handle keyboard overlay gracefully
+    const errorBorderColor = Color(0xFFE02424);
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -449,39 +518,111 @@ class _LoginOverlayState extends State<LoginOverlay> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Welcome Back',
-                style: TextStyle(
+              Text(
+                TranslationService().currentLanguage == AppLanguage.hindi
+                    ? 'वापसी पर स्वागत है'
+                    : TranslationService().currentLanguage == AppLanguage.marathi
+                        ? 'पुन्हा स्वागत आहे'
+                        : 'Welcome Back',
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryGreen,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Log in to continue to your account',
-                style: TextStyle(
+              Text(
+                TranslationService().currentLanguage == AppLanguage.hindi
+                    ? 'अपने खाते में जारी रखने के लिए लॉगिन करें'
+                    : TranslationService().currentLanguage == AppLanguage.marathi
+                        ? 'आपल्या खात्यात पुढे जाण्यासाठी लॉगिन करा'
+                        : 'Log in to continue to your account',
+                style: const TextStyle(
                   color: Colors.black54,
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // Google-style Inline Error Banner
+              if (_errorMessage != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDE8E8),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF8B4B4), width: 1.2),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline, color: errorBorderColor, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Color(0xFF9B1C1C),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               TextFormField(
                 controller: _emailPhoneController,
+                onChanged: (_) => _clearErrorIfPresent(),
                 decoration: InputDecoration(
-                  labelText: 'Email ID / Phone no',
-                  prefixIcon: const Icon(Icons.person_outline),
+                  labelText: TranslationService.tr('email'),
+                  labelStyle: TextStyle(
+                    color: _hasLoginError ? errorBorderColor : null,
+                    fontWeight: _hasLoginError ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                  floatingLabelStyle: TextStyle(
+                    color: _hasLoginError ? errorBorderColor : AppTheme.primaryGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.person_outline,
+                    color: _hasLoginError ? errorBorderColor : null,
+                  ),
+                  filled: _hasLoginError,
+                  fillColor: _hasLoginError ? const Color(0xFFFFF8F8) : Colors.transparent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: _hasLoginError ? errorBorderColor : Colors.grey.shade300,
+                      width: _hasLoginError ? 1.5 : 1.0,
+                    ),
+                  ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
+                    borderSide: BorderSide(
+                      color: _hasLoginError ? errorBorderColor : AppTheme.primaryGreen,
+                      width: 2,
+                    ),
                   ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter your email or phone number';
+                  }
+                  final trimmed = value.trim();
+                  if (trimmed == 'GOV-ADMIN') return null;
+                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                  final phoneRegex = RegExp(r'^\d{10}$');
+                  if (!emailRegex.hasMatch(trimmed) && !phoneRegex.hasMatch(trimmed)) {
+                    return 'Enter a valid email address or 10-digit phone number';
                   }
                   return null;
                 },
@@ -490,14 +631,29 @@ class _LoginOverlayState extends State<LoginOverlay> {
               TextFormField(
                 controller: _passwordController,
                 obscureText: !_isPasswordVisible,
+                onChanged: (_) => _clearErrorIfPresent(),
                 decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  labelText: TranslationService.tr('password'),
+                  labelStyle: TextStyle(
+                    color: _hasLoginError ? errorBorderColor : null,
+                    fontWeight: _hasLoginError ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                  floatingLabelStyle: TextStyle(
+                    color: _hasLoginError ? errorBorderColor : AppTheme.primaryGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.lock_outline,
+                    color: _hasLoginError ? errorBorderColor : null,
+                  ),
+                  filled: _hasLoginError,
+                  fillColor: _hasLoginError ? const Color(0xFFFFF8F8) : Colors.transparent,
                   suffixIcon: IconButton(
                     icon: Icon(
                       _isPasswordVisible
                           ? Icons.visibility
                           : Icons.visibility_off,
+                      color: _hasLoginError ? errorBorderColor : null,
                     ),
                     onPressed: () {
                       setState(() {
@@ -508,14 +664,27 @@ class _LoginOverlayState extends State<LoginOverlay> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: _hasLoginError ? errorBorderColor : Colors.grey.shade300,
+                      width: _hasLoginError ? 1.5 : 1.0,
+                    ),
+                  ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
+                    borderSide: BorderSide(
+                      color: _hasLoginError ? errorBorderColor : AppTheme.primaryGreen,
+                      width: 2,
+                    ),
                   ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your password';
+                  }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
                   }
                   return null;
                 },
@@ -536,9 +705,9 @@ class _LoginOverlayState extends State<LoginOverlay> {
                   ),
                   child: _isLoading 
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Log In',
-                          style: TextStyle(
+                      : Text(
+                          TranslationService.tr('login'),
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),

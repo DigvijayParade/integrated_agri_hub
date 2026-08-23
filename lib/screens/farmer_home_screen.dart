@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:integrated_agri_hub/screens/welcome_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:integrated_agri_hub/models/quiz.dart';
 import 'dart:async';
 import 'package:integrated_agri_hub/models/app_notification.dart';
 import 'package:integrated_agri_hub/screens/notifications_screen.dart';
@@ -11,7 +12,7 @@ import 'package:integrated_agri_hub/screens/education_feed_screen.dart';
 import 'package:integrated_agri_hub/services/user_service.dart';
 import 'package:integrated_agri_hub/services/admin_service.dart';
 import 'package:integrated_agri_hub/services/ai_service.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:integrated_agri_hub/services/translation_service.dart';
 
 const _kGreen = Color(0xFF4A7C59);
 const _kDarkGreen = Color(0xFF2A5934);
@@ -42,6 +43,8 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   String _farmerName = 'Loading...';
   String _farmerEmail = '';
   String _farmerState = '';
+  String _farmerDistrict = '';
+  double _farmerFieldSize = 0.0;
   final List<Quiz> _archivedQuizzes = [];
 
 
@@ -63,7 +66,9 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
       setState(() {
         _farmerName = data['fullName'] ?? 'Farmer';
         _farmerEmail = data['email'] ?? '';
-        _farmerState = data['state'] ?? '';
+        _farmerState = data['state'] ?? 'Maharashtra';
+        _farmerDistrict = data['district'] ?? '';
+        _farmerFieldSize = (data['fieldSize'] as num?)?.toDouble() ?? 0.0;
         _greenCoins = data['greenCoins'] as int? ?? 0;
         _streak = data['streak'] as int? ?? 0;
         _quizzesCompleted = data['quizzesCompleted'] as int? ?? 0;
@@ -133,7 +138,18 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           farmerName: _farmerName,
           registeredCrops: _registeredCrops,
           completedTasks: _completedTasks,
-          onShowProfile: () => _showProfileModal(context, _greenCoins, _transactions, _registeredCrops, (c) => setState(() => _registeredCrops = c)),
+          onShowProfile: () => _showProfileModal(
+            context: context,
+            greenCoins: _greenCoins,
+            transactions: _transactions,
+            crops: _registeredCrops,
+            farmerName: _farmerName,
+            farmerEmail: _farmerEmail,
+            farmerState: _farmerState,
+            farmerDistrict: _farmerDistrict,
+            farmerFieldSize: _farmerFieldSize,
+            onUpdateCrops: (c) => setState(() => _registeredCrops = c),
+          ),
           onAddCoins: _addCoins,
           onLogTransaction: _logTransaction,
           completedQuizzesCount: _quizzesCompleted,
@@ -169,44 +185,49 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _kCream,
-      body: _buildCurrentScreen(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const QRScannerScreen()),
-          );
-          if (!context.mounted) return;
-          if (result != null) _showScanResultDialog(context, result.toString());
-        },
-        backgroundColor: _kGreen,
-        elevation: 6,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 10.0,
-        elevation: 12,
-        shadowColor: Colors.black26,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home_outlined, Icons.home, 'Home', 0),
-              _buildNavItem(Icons.storefront_outlined, Icons.storefront, 'Market', 1),
-              const SizedBox(width: 56),
-              _buildNavItem(Icons.quiz_outlined, Icons.quiz, 'Quiz', 2),
-              _buildNavItem(Icons.school_outlined, Icons.school, 'Education', 3),
-            ],
+    return ListenableBuilder(
+      listenable: TranslationService(),
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: _kCream,
+          body: _buildCurrentScreen(),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+              );
+              if (!context.mounted) return;
+              if (result != null) _showScanResultDialog(context, result.toString());
+            },
+            backgroundColor: _kGreen,
+            elevation: 6,
+            shape: const CircleBorder(),
+            child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 28),
           ),
-        ),
-      ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+          bottomNavigationBar: BottomAppBar(
+            color: Colors.white,
+            shape: const CircularNotchedRectangle(),
+            notchMargin: 10.0,
+            elevation: 12,
+            shadowColor: Colors.black26,
+            child: SizedBox(
+              height: 64,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(Icons.home_outlined, Icons.home, TranslationService.tr('dashboard'), 0),
+                  _buildNavItem(Icons.storefront_outlined, Icons.storefront, TranslationService.tr('market_prices'), 1),
+                  const SizedBox(width: 56),
+                  _buildNavItem(Icons.quiz_outlined, Icons.quiz, TranslationService.tr('quizzes'), 2),
+                  _buildNavItem(Icons.school_outlined, Icons.school, TranslationService.tr('education'), 3),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -258,33 +279,6 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 }
 
 // === QUIZ MODULE ===
-class Question {
-  final String text;
-  final List<String> options;
-  final int correctIndex;
-  
-  Question({required this.text, required this.options, required this.correctIndex});
-}
-
-class Quiz {
-  final String title;
-  final String topic;
-  final String targetCrop;
-  final String difficulty;
-  final int reward;
-  final List<Question> questions;
-  final String estimatedTime;
-  
-  Quiz({
-    required this.title,
-    required this.topic,
-    required this.targetCrop,
-    required this.difficulty,
-    required this.reward,
-    required this.questions,
-    required this.estimatedTime,
-  });
-}
 
 class _QuizView extends StatefulWidget {
   final void Function(int, String) onAddCoins;
@@ -313,70 +307,44 @@ class _QuizViewState extends State<_QuizView> {
   int _currentQuestionIndex = 0;
   int _score = 0;
   int? _selectedAnswerIndex;
+  bool _isGenerating = false;
+  String? _generatingCrop;
 
-  final List<Quiz> _allQuizzes = [
-    Quiz(
-      title: 'Kharif Crop Pest Management',
-      topic: 'Pest Control',
-      targetCrop: 'Cotton',
-      difficulty: 'Medium',
-      reward: 50,
-      estimatedTime: '3 Mins',
-      questions: [
-        Question(
-          text: 'What is the most effective biological control for Fall Armyworm?',
-          options: ['Neem Oil Spray', 'Synthetic Pyrethroids', 'Urea Application', 'Flooding the field'],
-          correctIndex: 0,
-        ),
-        Question(
-          text: 'When is the best time to apply pesticide to minimize harm to beneficial insects?',
-          options: ['Mid-day', 'Early morning or late evening', 'Right before rain', 'Midnight'],
-          correctIndex: 1,
-        ),
-      ],
-    ),
-    Quiz(
-      title: 'Soil Health & NPK Balance',
-      topic: 'Soil Science',
-      targetCrop: 'Soybean',
-      difficulty: 'Hard',
-      reward: 100,
-      estimatedTime: '5 Mins',
-      questions: [
-        Question(
-          text: 'Which nutrient is primarily responsible for leaf growth and green color?',
-          options: ['Phosphorus', 'Potassium', 'Nitrogen', 'Calcium'],
-          correctIndex: 2,
-        ),
-        Question(
-          text: 'How often should a comprehensive soil test be conducted?',
-          options: ['Every month', 'Every 6 months', 'Every 2-3 years', 'Once a decade'],
-          correctIndex: 2,
-        ),
-      ],
-    ),
-    Quiz(
-      title: 'Drip Irrigation Best Practices',
-      topic: 'Water Management',
-      targetCrop: 'Sugarcane',
-      difficulty: 'Easy',
-      reward: 30,
-      estimatedTime: '2 Mins',
-      questions: [
-        Question(
-          text: 'How much water can drip irrigation save compared to flood irrigation?',
-          options: ['10-20%', '30-50%', '80-90%', 'None'],
-          correctIndex: 1,
-        ),
-        Question(
-          text: 'What is the primary maintenance task for drip lines?',
-          options: ['Painting them', 'Acid wash / Flushing to prevent clogging', 'Burying them deep', 'Freezing them'],
-          correctIndex: 1,
-        ),
-      ],
-    ),
-  ];
+  void _generateAndStartQuiz(String crop) async {
+    setState(() {
+      _isGenerating = true;
+      _generatingCrop = crop;
+    });
 
+    try {
+      final todayTopic = AiService.getTodayTopic();
+      final quiz = await AiService().generateQuizForCrop(
+        crop,
+        topic: todayTopic['title'],
+        topicIndex: AiService.getTodayTopicIndex(),
+      );
+      if (quiz != null && mounted) {
+        _startQuiz(quiz);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to generate quiz. Check your internet or API key.'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('AI Generation Error: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+          _generatingCrop = null;
+        });
+      }
+    }
+  }
   void _startQuiz(Quiz q) {
     setState(() {
       _activeQuiz = q;
@@ -405,16 +373,47 @@ class _QuizViewState extends State<_QuizView> {
     }
   }
 
-  void _finishQuiz() {
-    final reward = (_score / _activeQuiz!.questions.length) * _activeQuiz!.reward;
-    if (reward > 0) {
-      widget.onAddCoins(reward.toInt(), 'Quiz Completed: ${_activeQuiz!.title}');
+  void _finishQuiz() async {
+    final scorePercentage = _score / _activeQuiz!.questions.length;
+    // Require at least 50% score to earn the reward
+    if (scorePercentage >= 0.5) {
+      final canEarn = await UserService().canEarnQuizRewardToday();
+      if (canEarn && mounted) {
+        await UserService().recordQuizCompletion();
+        widget.onAddCoins(_activeQuiz!.reward, 'Quiz Completed: ${_activeQuiz!.title}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Quiz Passed! +${_activeQuiz!.reward} Coins added.'),
+            backgroundColor: _kGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quiz Passed! (Daily quiz reward already claimed)'),
+            backgroundColor: _kGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Quiz Failed. Score at least 50% to earn rewards!'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
+
     widget.onArchive(_activeQuiz!);
-    setState(() {
-      _state = QuizState.selection;
-      _activeQuiz = null;
-    });
+    if (mounted) {
+      setState(() {
+        _state = QuizState.selection;
+        _activeQuiz = null;
+      });
+    }
   }
 
   @override
@@ -427,11 +426,6 @@ class _QuizViewState extends State<_QuizView> {
   }
 
   Widget _buildSelectionDashboard() {
-    final availableQuizzes = _allQuizzes.where((q) => 
-        widget.registeredCrops.contains(q.targetCrop) && 
-        !widget.archivedQuizzes.contains(q)
-    ).toList();
-
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,10 +465,12 @@ class _QuizViewState extends State<_QuizView> {
               : ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    if (availableQuizzes.isNotEmpty) ...[
-                      const Text("Today's Crop Challenges", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+                    if (widget.registeredCrops.isNotEmpty) ...[
+                      const Text("Generate AI Challenge", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+                      const SizedBox(height: 8),
+                      const Text("Earn 100 coins per day by passing a crop challenge!", style: TextStyle(fontSize: 13, color: Colors.black54)),
                       const SizedBox(height: 16),
-                      ...availableQuizzes.map((q) => _buildQuizCard(q, isArchive: false)),
+                      ...widget.registeredCrops.map((crop) => _buildCropGeneratorCard(crop)),
                       const SizedBox(height: 24),
                     ],
                     if (widget.archivedQuizzes.isNotEmpty) ...[
@@ -482,13 +478,100 @@ class _QuizViewState extends State<_QuizView> {
                       const SizedBox(height: 16),
                       ...widget.archivedQuizzes.map((q) => _buildQuizCard(q, isArchive: true)),
                     ],
-                    if (availableQuizzes.isEmpty && widget.archivedQuizzes.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 40),
-                        child: Center(child: Text("No quizzes available for your registered crops.", style: TextStyle(color: Colors.black54))),
-                      ),
+
                   ],
                 ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCropGeneratorCard(String crop) {
+    final isGen = _isGenerating && _generatingCrop == crop;
+    final todayTopic = AiService.getTodayTopic();
+    final todayIdx = AiService.getTodayTopicIndex() + 1;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white, borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: _kLightGreen, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.eco, size: 12, color: _kGreen), const SizedBox(width: 4),
+                    Text(crop, style: const TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                child: const Row(
+                  children: [
+                    Text('🪙', style: TextStyle(fontSize: 12)), SizedBox(width: 4),
+                    Text('+100 Coins', style: TextStyle(fontSize: 11, color: Color(0xFFB8860B), fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text('$crop Daily Challenge', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.menu_book, size: 14, color: Color(0xFF1E3A8A)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Day $todayIdx Topic: ${todayTopic['title']}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A8A), fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome, size: 14, color: Colors.blue), SizedBox(width: 4),
+              Text('Linked to Today\'s Lesson', style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w600)),
+              SizedBox(width: 14),
+              Icon(Icons.bar_chart, size: 14, color: Colors.black45), SizedBox(width: 4),
+              Text('Medium', style: TextStyle(fontSize: 12, color: Colors.black54)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isGenerating ? null : () => _generateAndStartQuiz(crop),
+              style: ElevatedButton.styleFrom(backgroundColor: _kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: isGen 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Start Today\'s AI Quiz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
           ),
         ],
       ),
@@ -501,7 +584,7 @@ class _QuizViewState extends State<_QuizView> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,17 +608,6 @@ class _QuizViewState extends State<_QuizView> {
                   onPressed: () => widget.onDeleteArchive(q),
                   constraints: const BoxConstraints(), padding: EdgeInsets.zero,
                 )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
-                  child: Row(
-                    children: [
-                      const Text('\u{1FAA9}', style: TextStyle(fontSize: 12)), const SizedBox(width: 4),
-                      Text('+${q.reward} Coins', style: const TextStyle(fontSize: 11, color: Color(0xFFB8860B), fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -550,17 +622,6 @@ class _QuizViewState extends State<_QuizView> {
               Text(q.difficulty, style: const TextStyle(fontSize: 13, color: Colors.black54)),
             ],
           ),
-          if (!isArchive) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _startQuiz(q),
-                style: ElevatedButton.styleFrom(backgroundColor: _kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('Start Quiz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ]
         ],
       ),
     );
@@ -664,7 +725,7 @@ class _QuizViewState extends State<_QuizView> {
               if (reward > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4AF37))),
+                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4AF37))),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -848,8 +909,8 @@ class _DashboardViewState extends State<_DashboardView> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.6), width: 1.5),
-                          boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.2), blurRadius: 12)],
+                          border: Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.6), width: 1.5),
+                          boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withValues(alpha: 0.2), blurRadius: 12)],
                         ),
                         child: Row(children: [
                           const Icon(Icons.eco, color: _kGreen, size: 18),
@@ -948,11 +1009,11 @@ class _DashboardViewState extends State<_DashboardView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
         border: Border.all(
           color: task.status == 'Approved' 
-              ? _kGreen.withOpacity(0.3) 
-              : (task.status == 'Pending Verification' ? Colors.orange.withOpacity(0.3) : Colors.transparent),
+              ? _kGreen.withValues(alpha: 0.3) 
+              : (task.status == 'Pending Verification' ? Colors.orange.withValues(alpha: 0.3) : Colors.transparent),
           width: 1.5,
         ),
       ),
@@ -972,7 +1033,7 @@ class _DashboardViewState extends State<_DashboardView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD4AF37).withOpacity(0.15),
+                  color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -1135,12 +1196,12 @@ class _DashboardViewState extends State<_DashboardView> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 22)),
         const SizedBox(height: 14),
         Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -1193,7 +1254,7 @@ class _DashboardViewState extends State<_DashboardView> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
         ),
         child: Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1204,7 +1265,7 @@ class _DashboardViewState extends State<_DashboardView> {
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: tagColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: tagColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(tag, style: TextStyle(color: tagColor, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 4),
@@ -1216,7 +1277,18 @@ class _DashboardViewState extends State<_DashboardView> {
 }
 
 // === PROFILE MODAL ===
-void _showProfileModal(BuildContext context, int greenCoins, List<Map<String, dynamic>> transactions, List<String> crops, void Function(List<String>) onUpdateCrops) {
+void _showProfileModal({
+  required BuildContext context,
+  required int greenCoins,
+  required List<Map<String, dynamic>> transactions,
+  required List<String> crops,
+  required String farmerName,
+  required String farmerEmail,
+  required String farmerState,
+  required String farmerDistrict,
+  required double farmerFieldSize,
+  required void Function(List<String>) onUpdateCrops,
+}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -1232,6 +1304,11 @@ void _showProfileModal(BuildContext context, int greenCoins, List<Map<String, dy
         greenCoins: greenCoins,
         transactions: transactions,
         crops: crops,
+        farmerName: farmerName,
+        farmerEmail: farmerEmail,
+        farmerState: farmerState,
+        farmerDistrict: farmerDistrict,
+        farmerFieldSize: farmerFieldSize,
         onUpdateCrops: onUpdateCrops,
       ),
     ),
@@ -1243,6 +1320,11 @@ class _ProfileModal extends StatefulWidget {
   final int greenCoins;
   final List<Map<String, dynamic>> transactions;
   final List<String> crops;
+  final String farmerName;
+  final String farmerEmail;
+  final String farmerState;
+  final String farmerDistrict;
+  final double farmerFieldSize;
   final void Function(List<String>) onUpdateCrops;
 
   const _ProfileModal({
@@ -1250,6 +1332,11 @@ class _ProfileModal extends StatefulWidget {
     required this.greenCoins,
     required this.transactions,
     required this.crops,
+    required this.farmerName,
+    required this.farmerEmail,
+    required this.farmerState,
+    required this.farmerDistrict,
+    required this.farmerFieldSize,
     required this.onUpdateCrops,
   });
   @override
@@ -1259,17 +1346,62 @@ class _ProfileModal extends StatefulWidget {
 class _ProfileModalState extends State<_ProfileModal> {
   bool _showHistory = false;
   bool _isEditing = false;
-  String _selectedDistrict = 'Latur';
-  String _selectedLanguage = 'Marathi';
-  final _farmCtrl = TextEditingController(text: '4.5');
+  late String _selectedDistrict;
+  late String _selectedState;
+  late String _selectedLanguage;
+  late TextEditingController _farmCtrl;
 
-  final _mhDistricts = ['Latur', 'Wardha', 'Pune', 'Nashik', 'Jalgaon', 'Aurangabad', 'Nagpur', 'Solapur'];
-  final _langs = ['Marathi', 'Hindi', 'English'];
+  final Map<String, List<String>> _districtsMap = {
+    'Maharashtra': ['Pune', 'Nashik', 'Aurangabad', 'Nagpur', 'Amravati', 'Solapur', 'Kolhapur', 'Satara', 'Sangli', 'Latur', 'Nanded', 'Osmanabad'],
+    'Punjab': ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Hoshiarpur', 'Gurdaspur', 'Firozpur', 'Moga', 'Faridkot'],
+    'Kerala': ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Thrissur', 'Kollam', 'Kannur', 'Malappuram', 'Palakkad', 'Alappuzha', 'Idukki'],
+  };
+  final _states = ['Maharashtra', 'Punjab', 'Kerala'];
+  final _langs = ['English', 'Marathi', 'Hindi', 'Punjabi', 'Malayalam'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedState = widget.farmerState.isNotEmpty ? widget.farmerState : 'Maharashtra';
+    final availableDistricts = _districtsMap[_selectedState] ?? _districtsMap['Maharashtra']!;
+    if (widget.farmerDistrict.isNotEmpty) {
+      _selectedDistrict = widget.farmerDistrict;
+    } else {
+      _selectedDistrict = availableDistricts.first;
+    }
+    _selectedLanguage = 'English';
+    _farmCtrl = TextEditingController(
+      text: widget.farmerFieldSize > 0
+          ? (widget.farmerFieldSize % 1 == 0
+              ? widget.farmerFieldSize.toInt().toString()
+              : widget.farmerFieldSize.toString())
+          : '',
+    );
+  }
 
   @override
   void dispose() {
     _farmCtrl.dispose();
     super.dispose();
+  }
+
+  void _saveProfile() async {
+    final sizeVal = double.tryParse(_farmCtrl.text.trim());
+    await UserService().updateProfile({
+      'state': _selectedState,
+      'district': _selectedDistrict,
+      'fieldSize': sizeVal,
+      'selectedCrops': widget.crops,
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully!'),
+          backgroundColor: _kGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _otpDialog() {
@@ -1296,6 +1428,11 @@ class _ProfileModalState extends State<_ProfileModal> {
 
   @override
   Widget build(BuildContext context) {
+    final stateDistricts = _districtsMap[_selectedState] ?? [_selectedDistrict];
+    if (!stateDistricts.contains(_selectedDistrict) && stateDistricts.isNotEmpty) {
+      _selectedDistrict = stateDistricts.first;
+    }
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFFF8F9FA),
@@ -1316,7 +1453,12 @@ class _ProfileModalState extends State<_ProfileModal> {
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text('Farmer Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
               TextButton.icon(
-                onPressed: () => setState(() => _isEditing = !_isEditing),
+                onPressed: () {
+                  if (_isEditing) {
+                    _saveProfile();
+                  }
+                  setState(() => _isEditing = !_isEditing);
+                },
                 icon: Icon(_isEditing ? Icons.check_circle : Icons.edit, size: 16, color: _kGreen),
                 label: Text(_isEditing ? 'Save' : 'Edit Profile',
                     style: const TextStyle(color: _kGreen, fontWeight: FontWeight.w600)),
@@ -1333,20 +1475,26 @@ class _ProfileModalState extends State<_ProfileModal> {
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Text('Rajesh Patil', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+                  Expanded(
+                    child: Text(
+                      widget.farmerName.isEmpty ? 'Farmer' : widget.farmerName,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.qr_code, color: _kGreen, size: 22),
                     onPressed: () => _showQr(context),
                     padding: EdgeInsets.zero, constraints: const BoxConstraints(),
                   ),
                 ]),
-                const Text('+91 98765 43210', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                Text(widget.farmerEmail, style: const TextStyle(fontSize: 13, color: Colors.black54)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _kGreen.withOpacity(0.4))),
+                      border: Border.all(color: _kGreen.withValues(alpha: 0.4))),
                   child: const Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.verified_user, size: 12, color: _kGreen), SizedBox(width: 4),
                     Text('Aadhaar Verified', style: TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.w600)),
@@ -1393,20 +1541,32 @@ class _ProfileModalState extends State<_ProfileModal> {
 
           // Farm Details
           _card(title: 'Farm Details', children: [
-            _infoRow(Icons.location_on_outlined, 'State', 'Maharashtra', locked: true),
+            _isEditing
+                ? _dropRow(Icons.location_on_outlined, 'State', _selectedState, _states,
+                    (v) => setState(() {
+                      _selectedState = v!;
+                      final newDistricts = _districtsMap[_selectedState] ?? [];
+                      if (newDistricts.isNotEmpty) _selectedDistrict = newDistricts.first;
+                    }))
+                : _infoRow(Icons.location_on_outlined, 'State', _selectedState),
             const Divider(height: 20),
             _isEditing
-                ? _dropRow(Icons.map_outlined, 'Primary District', _selectedDistrict, _mhDistricts,
+                ? _dropRow(Icons.map_outlined, 'Primary District', _selectedDistrict, stateDistricts,
                     (v) => setState(() => _selectedDistrict = v!))
                 : _infoRow(Icons.map_outlined, 'Primary District', _selectedDistrict),
             const Divider(height: 20),
             _isEditing
-                ? _tfRow(Icons.landscape_outlined, 'Farm Size', _farmCtrl, 'Hectares')
-                : _infoRow(Icons.landscape_outlined, 'Farm Size', '${_farmCtrl.text} Hectares'),
+                ? _tfRow(Icons.landscape_outlined, 'Farm Size', _farmCtrl, 'Acres')
+                : _infoRow(Icons.landscape_outlined, 'Farm Size', _farmCtrl.text.isEmpty ? 'Not Specified' : '${_farmCtrl.text} Acres'),
             const Divider(height: 20),
             _isEditing
                 ? _dropRow(Icons.language_outlined, 'Language', _selectedLanguage, _langs,
-                    (v) => setState(() => _selectedLanguage = v!))
+                    (v) {
+                      if (v != null) {
+                        setState(() => _selectedLanguage = v);
+                        TranslationService().setLanguage(v);
+                      }
+                    })
                 : _infoRow(Icons.language_outlined, 'Language', _selectedLanguage),
           ]),
 
@@ -1509,8 +1669,11 @@ class _ProfileModalState extends State<_ProfileModal> {
                     child: Icon(Icons.logout, color: Colors.red, size: 20)),
                 title: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red)),
                 trailing: const Icon(Icons.chevron_right, color: Colors.red),
-                onTap: () => Navigator.pushAndRemoveUntil(context,
-                    MaterialPageRoute(builder: (_) => const WelcomeScreen()), (_) => false),
+                onTap: () async {
+                  UserService().clearCache();
+                  await FirebaseAuth.instance.signOut();
+                  // AuthGate will automatically redirect to WelcomeScreen
+                },
               ),
             ]),
           ),
@@ -1525,7 +1688,7 @@ class _ProfileModalState extends State<_ProfileModal> {
         decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.shade100),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (title != null) ...[
@@ -1553,7 +1716,7 @@ class _ProfileModalState extends State<_ProfileModal> {
           Text(label, style: const TextStyle(fontSize: 11, color: Colors.black45)),
           DropdownButton<String>(
             value: value, isExpanded: true, isDense: true,
-            underline: Container(height: 1, color: _kGreen.withOpacity(0.3)),
+            underline: Container(height: 1, color: _kGreen.withValues(alpha: 0.3)),
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
             items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
             onChanged: cb,
@@ -1572,7 +1735,7 @@ class _ProfileModalState extends State<_ProfileModal> {
             decoration: InputDecoration(
               isDense: true, suffixText: suffix,
               suffixStyle: const TextStyle(color: Colors.black54, fontSize: 13),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _kGreen.withOpacity(0.3))),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _kGreen.withValues(alpha: 0.3))),
               focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: _kGreen)),
             ),
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -1587,7 +1750,7 @@ class _ProfileModalState extends State<_ProfileModal> {
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         CircleAvatar(
           radius: 16,
-          backgroundColor: isCredit ? Colors.greenAccent.withOpacity(0.2) : Colors.redAccent.withOpacity(0.2),
+          backgroundColor: isCredit ? Colors.greenAccent.withValues(alpha: 0.2) : Colors.redAccent.withValues(alpha: 0.2),
           child: Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward, size: 14,
               color: isCredit ? Colors.greenAccent : Colors.redAccent),
         ),
@@ -1716,7 +1879,7 @@ class _MarketViewState extends State<_MarketView> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
                 color: _kLightGreen, borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _kGreen.withOpacity(0.3))),
+                border: Border.all(color: _kGreen.withValues(alpha: 0.3))),
             child: const Row(children: [
               Icon(Icons.location_on, size: 14, color: _kGreen), SizedBox(width: 4),
               Text('Maharashtra', style: TextStyle(fontSize: 12, color: _kDarkGreen, fontWeight: FontWeight.w600)),
@@ -1734,7 +1897,7 @@ class _MarketViewState extends State<_MarketView> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.white, borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)],
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -1832,7 +1995,7 @@ class _MarketViewState extends State<_MarketView> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)],
       ),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1874,7 +2037,7 @@ class _MarketViewState extends State<_MarketView> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: isUp ? _kGreen.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                color: isUp ? _kGreen.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(isUp ? Icons.arrow_upward : Icons.arrow_downward,

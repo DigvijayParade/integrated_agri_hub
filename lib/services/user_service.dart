@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 /// Central service for all user data operations.
 /// Handles: profile loading, green coins, streak, daily login bonus, quiz/task limits.
+/// Farmers are stored in 'farmers/{uid}', shopkeepers in 'shopkeepers/{uid}'.
 class UserService {
   static final UserService _instance = UserService._internal();
   factory UserService() => _instance;
@@ -17,14 +18,47 @@ class UserService {
 
   String? get currentUid => _auth.currentUser?.uid;
 
+  // Cache the resolved collection name so we don't query repeatedly
+  String? _cachedCollection;
+
+  /// Resolves the Firestore collection for the current user.
+  /// Checks 'farmers' → 'shopkeepers' → fallback 'users' (old accounts).
+  Future<String> _resolveCollection() async {
+    if (_cachedCollection != null) return _cachedCollection!;
+    final uid = currentUid;
+    if (uid == null) return 'users';
+
+    try {
+      var doc = await _db.collection('farmers').doc(uid).get();
+      if (doc.exists) {
+        _cachedCollection = 'farmers';
+        return 'farmers';
+      }
+      doc = await _db.collection('shopkeepers').doc(uid).get();
+      if (doc.exists) {
+        _cachedCollection = 'shopkeepers';
+        return 'shopkeepers';
+      }
+    } catch (e) {
+      if (kDebugMode) print('UserService._resolveCollection error: $e');
+    }
+    // Fallback for existing test accounts in old 'users' collection
+    _cachedCollection = 'users';
+    return 'users';
+  }
+
+  /// Call on logout to clear cached collection so next user resolves fresh.
+  void clearCache() => _cachedCollection = null;
+
   // ──────────────────────────────────────────
-  // LOAD FULL FARMER PROFILE
+  // LOAD FULL PROFILE
   // ──────────────────────────────────────────
   Future<Map<String, dynamic>?> loadFarmerProfile() async {
     final uid = currentUid;
     if (uid == null) return null;
     try {
-      final doc = await _db.collection('users').doc(uid).get();
+      final col = await _resolveCollection();
+      final doc = await _db.collection(col).doc(uid).get();
       if (doc.exists) return doc.data();
     } catch (e) {
       if (kDebugMode) print('UserService.loadFarmerProfile error: $e');
@@ -40,15 +74,15 @@ class UserService {
     final uid = currentUid;
     if (uid == null) return false;
     try {
-      final doc = await _db.collection('users').doc(uid).get();
+      final col = await _resolveCollection();
+      final doc = await _db.collection(col).doc(uid).get();
       final data = doc.data();
       if (data == null) return false;
 
       final lastLogin = data['lastLoginDate'] as String?;
       if (lastLogin == _today) return false; // Already got bonus today
 
-      // Grant 10 coins and record today
-      await _db.collection('users').doc(uid).update({
+      await _db.collection(col).doc(uid).update({
         'greenCoins': FieldValue.increment(10),
         'lastLoginDate': _today,
       });
@@ -62,41 +96,31 @@ class UserService {
   // ──────────────────────────────────────────
   // STREAK — call this after task OR quiz completion
   // ──────────────────────────────────────────
-  /// Updates streak after a daily activity (task or quiz).
-  /// Returns the new streak count. Returns -1 on error.
+  /// Updates streak after a daily activity. Returns new streak count or -1 on error.
   Future<int> updateStreakAfterActivity() async {
     final uid = currentUid;
     if (uid == null) return -1;
     try {
-      final doc = await _db.collection('users').doc(uid).get();
+      final col = await _resolveCollection();
+      final doc = await _db.collection(col).doc(uid).get();
       final data = doc.data();
       if (data == null) return -1;
 
       final lastActive = data['lastActiveDate'] as String?;
       int currentStreak = data['streak'] as int? ?? 0;
 
-      if (lastActive == _today) {
-        // Already active today — no streak change
-        return currentStreak;
-      }
+      if (lastActive == _today) return currentStreak; // Already active today
 
-      // Calculate new streak
       int newStreak;
       if (lastActive == null) {
-        newStreak = 1; // First ever activity
+        newStreak = 1;
       } else {
         final last = DateTime.parse(lastActive);
         final today = DateTime.parse(_today);
         final diff = today.difference(last).inDays;
-
-        if (diff == 1) {
-          newStreak = currentStreak + 1; // Consecutive day
-        } else {
-          newStreak = 1; // Missed a day — reset
-        }
+        newStreak = diff == 1 ? currentStreak + 1 : 1;
       }
 
-      // Check 29-day streak bonus
       Map<String, dynamic> updates = {
         'streak': newStreak,
         'lastActiveDate': _today,
@@ -104,12 +128,12 @@ class UserService {
 
       if (newStreak >= 29) {
         updates['greenCoins'] = FieldValue.increment(100);
-        updates['streak'] = 0; // Reset after bonus
+        updates['streak'] = 0;
         newStreak = 0;
         if (kDebugMode) print('🎉 29-day streak bonus credited!');
       }
 
-      await _db.collection('users').doc(uid).update(updates);
+      await _db.collection(col).doc(uid).update(updates);
       return newStreak;
     } catch (e) {
       if (kDebugMode) print('UserService.updateStreak error: $e');
@@ -124,7 +148,8 @@ class UserService {
     final uid = currentUid;
     if (uid == null) return;
     try {
-      await _db.collection('users').doc(uid).update({
+      final col = await _resolveCollection();
+      await _db.collection(col).doc(uid).update({
         'greenCoins': FieldValue.increment(amount),
       });
     } catch (e) {
@@ -136,11 +161,12 @@ class UserService {
     final uid = currentUid;
     if (uid == null) return false;
     try {
-      final doc = await _db.collection('users').doc(uid).get();
+      final col = await _resolveCollection();
+      final doc = await _db.collection(col).doc(uid).get();
       final coins = doc.data()?['greenCoins'] as int? ?? 0;
-      if (coins < amount) return false; // Insufficient coins
+      if (coins < amount) return false;
 
-      await _db.collection('users').doc(uid).update({
+      await _db.collection(col).doc(uid).update({
         'greenCoins': FieldValue.increment(-amount),
       });
       return true;
@@ -153,12 +179,12 @@ class UserService {
   // ──────────────────────────────────────────
   // QUIZ LIMIT — 1 rewarded quiz per day
   // ──────────────────────────────────────────
-  /// Returns true if the farmer can earn coins from a quiz today.
   Future<bool> canEarnQuizRewardToday() async {
     final uid = currentUid;
     if (uid == null) return false;
     try {
-      final doc = await _db.collection('users').doc(uid).get();
+      final col = await _resolveCollection();
+      final doc = await _db.collection(col).doc(uid).get();
       final lastQuizDate = doc.data()?['lastQuizDate'] as String?;
       return lastQuizDate != _today;
     } catch (e) {
@@ -166,12 +192,12 @@ class UserService {
     }
   }
 
-  /// Call after rewarding a quiz. Marks today as quiz-rewarded + increments count.
   Future<void> recordQuizCompletion() async {
     final uid = currentUid;
     if (uid == null) return;
     try {
-      await _db.collection('users').doc(uid).update({
+      final col = await _resolveCollection();
+      await _db.collection(col).doc(uid).update({
         'lastQuizDate': _today,
         'quizzesCompleted': FieldValue.increment(1),
         'greenCoins': FieldValue.increment(100),
@@ -189,7 +215,8 @@ class UserService {
     final uid = currentUid;
     if (uid == null) return false;
     try {
-      final doc = await _db.collection('users').doc(uid).get();
+      final col = await _resolveCollection();
+      final doc = await _db.collection(col).doc(uid).get();
       final lastTaskDate = doc.data()?['lastTaskRewardDate'] as String?;
       return lastTaskDate != _today;
     } catch (e) {
@@ -197,21 +224,19 @@ class UserService {
     }
   }
 
-  /// Call after rewarding a task.
   Future<void> recordTaskCompletion(String taskId, int coinsReward, bool giveReward) async {
     final uid = currentUid;
     if (uid == null) return;
     try {
+      final col = await _resolveCollection();
       final updates = <String, dynamic>{
         'completedTasks': FieldValue.arrayUnion([taskId]),
       };
-      
       if (giveReward) {
         updates['lastTaskRewardDate'] = _today;
         updates['greenCoins'] = FieldValue.increment(coinsReward);
       }
-      
-      await _db.collection('users').doc(uid).update(updates);
+      await _db.collection(col).doc(uid).update(updates);
       await updateStreakAfterActivity();
     } catch (e) {
       if (kDebugMode) print('UserService.recordTaskCompletion error: $e');
@@ -219,13 +244,14 @@ class UserService {
   }
 
   // ──────────────────────────────────────────
-  // SAVE PROFILE EDITS (crops, state)
+  // SAVE PROFILE EDITS (crops, state, district, field size, etc.)
   // ──────────────────────────────────────────
   Future<void> updateProfile(Map<String, dynamic> fields) async {
     final uid = currentUid;
     if (uid == null) return;
     try {
-      await _db.collection('users').doc(uid).update(fields);
+      final col = await _resolveCollection();
+      await _db.collection(col).doc(uid).update(fields);
     } catch (e) {
       if (kDebugMode) print('UserService.updateProfile error: $e');
     }
@@ -237,6 +263,7 @@ class UserService {
   Stream<DocumentSnapshot<Map<String, dynamic>>>? userStream() {
     final uid = currentUid;
     if (uid == null) return null;
-    return _db.collection('users').doc(uid).snapshots();
+    final col = _cachedCollection ?? 'farmers';
+    return _db.collection(col).doc(uid).snapshots();
   }
 }

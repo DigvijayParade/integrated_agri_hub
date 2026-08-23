@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class YoutubePlayerWidget extends StatefulWidget {
   final String videoUrl;
@@ -50,7 +51,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -82,8 +83,8 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.black.withOpacity(_isPlaying ? 0.2 : 0.4),
-                        Colors.black.withOpacity(_isPlaying ? 0.3 : 0.6),
+                        Colors.black.withValues(alpha: _isPlaying ? 0.2 : 0.4),
+                        Colors.black.withValues(alpha: _isPlaying ? 0.3 : 0.6),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -140,10 +141,11 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
 
               // Play / Pause Button in Center
               GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isPlaying = !_isPlaying;
-                  });
+                onTap: () async {
+                  final url = widget.videoUrl;
+                  if (await canLaunchUrl(Uri.parse(url))) {
+                    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  }
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -155,7 +157,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -176,7 +178,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.75),
+                      color: Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.white24),
                     ),
@@ -237,10 +239,11 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                             color: Colors.white,
                             size: 20,
                           ),
-                          onPressed: () {
-                            setState(() {
-                              _isPlaying = !_isPlaying;
-                            });
+                          onPressed: () async {
+                            final url = widget.videoUrl;
+                            if (await canLaunchUrl(Uri.parse(url))) {
+                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                            }
                           },
                         ),
                         const SizedBox(width: 12),

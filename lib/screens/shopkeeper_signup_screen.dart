@@ -41,6 +41,7 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
       final User? user = await _authService.signUpWithEmailAndPassword(email, pwd);
 
       if (user != null) {
+        // Save to dedicated 'shopkeepers' collection
         await _authService.saveUserProfile(user.uid, {
           'role': 'shopkeeper',
           'fullName': name,
@@ -50,8 +51,9 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
           'state': _selectedState,
           'shopAddress': _shopAddressController.text.trim(),
           'todaySales': 0,
+          'greenCoinsReceived': 0,
           'createdAt': DateTime.now().toIso8601String(),
-        });
+        }, collection: 'shopkeepers');
 
         _showSnack('Account created successfully!', const Color(0xFF4A7C59));
 
@@ -137,7 +139,8 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Enter your email';
-                        if (!v.contains('@')) return 'Enter a valid email address';
+                        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                        if (!emailRegex.hasMatch(v.trim())) return 'Enter a valid email address';
                         return null;
                       },
                     ),
@@ -185,6 +188,7 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
                       decoration: _buildInputDecoration('Password', Icons.lock_outline).copyWith(
+                        helperText: 'Must be 8+ chars with 1 upper, 1 digit, 1 special',
                         suffixIcon: IconButton(
                           icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
                           onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
@@ -192,7 +196,14 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Enter a password';
-                        if (v.length < 6) return 'Password must be at least 6 characters';
+                        if (v.length < 8) return 'Password must be at least 8 characters';
+                        final hasUpper = v.contains(RegExp(r'[A-Z]'));
+                        final hasLower = v.contains(RegExp(r'[a-z]'));
+                        final hasDigit = v.contains(RegExp(r'[0-9]'));
+                        final hasSpecial = v.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+                        if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+                          return 'Required: 1 upper, 1 lower, 1 digit, 1 special';
+                        }
                         return null;
                       },
                     ),
@@ -245,7 +256,7 @@ class _ShopkeeperSignupScreenState extends State<ShopkeeperSignupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 16, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

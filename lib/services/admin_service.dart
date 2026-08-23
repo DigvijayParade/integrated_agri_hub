@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/crop_education_data.dart';
 
 class MarketPriceItem {
@@ -21,6 +22,31 @@ class MarketPriceItem {
     this.unit = 'Quintal',
     DateTime? lastUpdated,
   }) : lastUpdated = lastUpdated ?? DateTime.now();
+
+  factory MarketPriceItem.fromJson(Map<String, dynamic> json, String docId) {
+    return MarketPriceItem(
+      id: docId,
+      cropName: json['cropName'] ?? '',
+      mandiName: json['mandiName'] ?? '',
+      district: json['district'] ?? '',
+      currentPrice: (json['currentPrice'] ?? 0).toDouble(),
+      previousPrice: (json['previousPrice'] ?? 0).toDouble(),
+      unit: json['unit'] ?? 'Quintal',
+      lastUpdated: (json['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'cropName': cropName,
+      'mandiName': mandiName,
+      'district': district,
+      'currentPrice': currentPrice,
+      'previousPrice': previousPrice,
+      'unit': unit,
+      'lastUpdated': Timestamp.fromDate(lastUpdated),
+    };
+  }
 
   double get changePercentage {
     if (previousPrice == 0) return 0.0;
@@ -171,32 +197,31 @@ class AdminService extends ChangeNotifier {
   }
 
   // --- MARKET PRICE ACTIONS ---
-  void updateMarketPrice(String id, double newPrice) {
-    final index = _marketPrices.indexWhere((item) => item.id == id);
-    if (index != -1) {
-      final oldItem = _marketPrices[index];
-      _marketPrices[index] = MarketPriceItem(
-        id: oldItem.id,
-        cropName: oldItem.cropName,
-        mandiName: oldItem.mandiName,
-        district: oldItem.district,
-        currentPrice: newPrice,
-        previousPrice: oldItem.currentPrice,
-        unit: oldItem.unit,
-        lastUpdated: DateTime.now(),
-      );
-      notifyListeners();
+  Future<void> updateMarketPrice(String id, double newPrice) async {
+    final docRef = FirebaseFirestore.instance.collection('market_prices').doc(id);
+    final docSnap = await docRef.get();
+    
+    if (docSnap.exists) {
+      final oldPrice = (docSnap.data()?['currentPrice'] ?? 0).toDouble();
+      await docRef.update({
+        'currentPrice': newPrice,
+        'previousPrice': oldPrice,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
     }
   }
 
-  void addMarketPriceItem(MarketPriceItem item) {
-    _marketPrices.insert(0, item);
-    notifyListeners();
-  }
-
-  int importMarketPricesFromCsv(String csvText) {
+  Future<int> importMarketPricesFromCsv(String csvText) async {
     int importedCount = 0;
     final lines = csvText.split('\n');
+    
+    final collection = FirebaseFirestore.instance.collection('market_prices');
+    final batch = FirebaseFirestore.instance.batch();
+    
+    // Fetch existing docs to handle previousPrice updates
+    final existingSnap = await collection.get();
+    final existingItems = existingSnap.docs.map((d) => MarketPriceItem.fromJson(d.data(), d.id)).toList();
+
     for (var line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || trimmed.startsWith('#') || trimmed.toLowerCase().contains('crop')) continue;
@@ -209,27 +234,37 @@ class AdminService extends ChangeNotifier {
         final price = double.tryParse(parts[3].trim()) ?? 0.0;
 
         if (crop.isNotEmpty && price > 0) {
-          final existingIndex = _marketPrices.indexWhere((p) =>
+          final existing = existingItems.where((p) => 
               p.cropName.toLowerCase() == crop.toLowerCase() &&
-              p.mandiName.toLowerCase() == mandi.toLowerCase());
+              p.mandiName.toLowerCase() == mandi.toLowerCase()).firstOrNull;
 
-          if (existingIndex != -1) {
-            updateMarketPrice(_marketPrices[existingIndex].id, price);
+          if (existing != null) {
+            final docRef = collection.doc(existing.id);
+            batch.update(docRef, {
+              'currentPrice': price,
+              'previousPrice': existing.currentPrice,
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
           } else {
-            addMarketPriceItem(MarketPriceItem(
-              id: DateTime.now().millisecondsSinceEpoch.toString() + '_$importedCount',
+            final docRef = collection.doc();
+            final newItem = MarketPriceItem(
+              id: docRef.id,
               cropName: crop,
               mandiName: mandi.isEmpty ? 'Central APMC' : mandi,
               district: district.isEmpty ? 'Maharashtra' : district,
               currentPrice: price,
               previousPrice: price * 0.95,
-            ));
+            );
+            batch.set(docRef, newItem.toJson());
           }
           importedCount++;
         }
       }
     }
-    notifyListeners();
+    
+    if (importedCount > 0) {
+      await batch.commit();
+    }
     return importedCount;
   }
 

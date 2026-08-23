@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/admin_service.dart';
+import '../services/translation_service.dart';
 import '../widgets/youtube_player_widget.dart';
-import 'welcome_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({Key? key}) : super(key: key);
@@ -20,8 +21,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   String _marketSearchQuery = '';
   final TextEditingController _csvInputController = TextEditingController();
 
-  // Education Media Hub State
-  String _selectedCrop = 'Cotton';
+  // Tasks Crop Options
   final List<String> _cropOptions = [
     'Cotton',
     'Soybean',
@@ -34,52 +34,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     'Coconut',
   ];
 
-  final TextEditingController _writtenGuideController = TextEditingController();
-  final TextEditingController _audioUrlController = TextEditingController();
-  final TextEditingController _ytUrlController = TextEditingController();
-  final TextEditingController _ytTitleController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _adminService.addListener(_onAdminServiceChange);
-    _loadCropEduData(_selectedCrop);
   }
 
   @override
   void dispose() {
     _adminService.removeListener(_onAdminServiceChange);
     _tabController.dispose();
-    _writtenGuideController.dispose();
-    _audioUrlController.dispose();
-    _ytUrlController.dispose();
-    _ytTitleController.dispose();
     _csvInputController.dispose();
     super.dispose();
   }
 
   void _onAdminServiceChange() {
     if (mounted) setState(() {});
-  }
-
-  void _loadCropEduData(String crop) {
-    final data = _adminService.getEducationDataForCrop(crop);
-    if (data != null) {
-      _writtenGuideController.text = data.writtenGuideText;
-      _audioUrlController.text = data.audioUrl;
-      _ytUrlController.text =
-          data.relatedVideoUrls.isNotEmpty ? data.relatedVideoUrls.first : '';
-      _ytTitleController.text =
-          data.videoTitles.isNotEmpty ? data.videoTitles.first : '';
-    } else {
-      _writtenGuideController.text =
-          'Farming Guide for $crop.\n\nBest Practices:\n1. Prepare well-drained fertile soil.\n2. Ensure proper row spacing & irrigation.\n3. Apply organic fertilizers.';
-      _audioUrlController.text =
-          'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-      _ytUrlController.text = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-      _ytTitleController.text = '$crop High Yield Farming Guide';
-    }
   }
 
   @override
@@ -94,7 +65,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E3A8A), // Official Govt Navy
+        backgroundColor: const Color(0xFF1E3A8A),
         elevation: 4,
         toolbarHeight: 80,
         title: Row(
@@ -102,23 +73,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withAlpha(38),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.account_balance,
-                color: Color(0xFFFBBF24), // Gold emblem
+                color: Color(0xFFFBBF24),
                 size: 28,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Government Admin Portal',
-                    style: TextStyle(
+                    TranslationService.tr('admin'),
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -126,8 +97,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'Dept. of Agriculture & Agri-Market Services',
-                    style: TextStyle(
+                    TranslationService().currentLanguage == AppLanguage.hindi
+                        ? 'कृषि एवं कृषि-बाज़ार सेवा विभाग'
+                        : TranslationService().currentLanguage == AppLanguage.marathi
+                            ? 'कृषी आणि कृषी-बाजार सेवा विभाग'
+                            : 'Dept. of Agriculture & Agri-Market Services',
+                    style: const TextStyle(
                       fontSize: 12,
                       color: Colors.white70,
                     ),
@@ -153,10 +128,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          tabs: const [
-            Tab(icon: Icon(Icons.currency_rupee), text: 'Market Prices'),
-            Tab(icon: Icon(Icons.video_collection_outlined), text: 'Education'),
-            Tab(icon: Icon(Icons.assignment_outlined), text: 'Tasks'),
+          tabs: [
+            Tab(icon: const Icon(Icons.currency_rupee), text: TranslationService.tr('market_prices')),
+            Tab(icon: const Icon(Icons.assignment_outlined), text: TranslationService.tr('tasks')),
           ],
         ),
       ),
@@ -164,7 +138,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         controller: _tabController,
         children: [
           _buildMarketPriceTab(prices),
-          _buildEducationMediaTab(),
           _buildTasksTab(),
         ],
       ),
@@ -215,12 +188,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                     children: [
                       Icon(Icons.upload_file, color: Color(0xFF1E3A8A)),
                       SizedBox(width: 8),
-                      Text(
-                        'Upload Market Price File (CSV / JSON)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E3A8A),
+                      Expanded(
+                        child: Text(
+                          'Upload Market Price File (CSV / JSON)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E3A8A),
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -231,7 +207,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                     style: TextStyle(fontSize: 13, color: Colors.black54),
                   ),
                   const SizedBox(height: 12),
-
                   Row(
                     children: [
                       Expanded(
@@ -246,8 +221,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                           ),
                           icon: const Icon(Icons.file_upload_outlined),
                           label: const Text(
-                            'Select & Import Market CSV File',
+                            'Select & Import CSV',
                             style: TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           onPressed: _showCsvUploadDialog,
                         ),
@@ -255,7 +231,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       const SizedBox(width: 12),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                           side: const BorderSide(color: Color(0xFF1E3A8A)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -263,7 +239,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                         ),
                         icon: const Icon(Icons.refresh, color: Color(0xFF1E3A8A)),
                         label: const Text(
-                          'Load Sample Rates',
+                          'Load Sample',
                           style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold),
                         ),
                         onPressed: () {
@@ -294,8 +270,8 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: const Text(
+              const Expanded(
+                child: Text(
                   'Live Mandi Rates (Interactive Editor)',
                   style: TextStyle(
                     fontSize: 18,
@@ -314,6 +290,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                   border: Border.all(color: const Color(0xFF86EFAC)),
                 ),
                 child: const Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     CircleAvatar(radius: 4, backgroundColor: Color(0xFF16A34A)),
                     SizedBox(width: 6),
@@ -400,6 +377,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -414,7 +392,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
 
             // Price input box
             Container(
-              width: 95,
+              width: 90,
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
@@ -442,7 +420,8 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF059669),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                minimumSize: Size.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -452,12 +431,12 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                 _adminService.updateMarketPrice(item.id, newPrice);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Updated ${item.cropName} price to ₹${newPrice.toStringAsFixed(0)} / Quintal!'),
+                    content: Text('Updated ${item.cropName} to ₹${newPrice.toStringAsFixed(0)}'),
                     duration: const Duration(seconds: 2),
                   ),
                 );
               },
-              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ],
         ),
@@ -465,285 +444,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
     );
   }
 
-  // --- TAB 2: EDUCATION & MEDIA HUB ---
-  Widget _buildEducationMediaTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Crop Selector Dropdown
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Select Target Crop for Education Module',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A8A),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCrop,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                    items: _cropOptions.map((crop) {
-                      return DropdownMenuItem<String>(
-                        value: crop,
-                        child: Text(
-                          crop,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (newCrop) {
-                      if (newCrop != null) {
-                        setState(() {
-                          _selectedCrop = newCrop;
-                          _loadCropEduData(newCrop);
-                        });
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
 
-          // Written Guide Text Section
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.article_outlined, color: Color(0xFF1E3A8A)),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '1. Written Farming Guide (Text)',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E3A8A),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _writtenGuideController,
-                    maxLines: 5,
-                    decoration: InputDecoration(
-                      hintText: 'Enter best practices, soil guidelines, pest control steps...',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Audio Guide Section
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.audiotrack, color: Color(0xFF1E3A8A)),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '2. Audio Guide File / URL',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E3A8A),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _audioUrlController,
-                    decoration: InputDecoration(
-                      labelText: 'Audio Guide MP3 Link',
-                      hintText: 'https://example.com/audio_guide.mp3',
-                      prefixIcon: const Icon(Icons.link),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // YouTube Video Section with Live Preview
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.video_library, color: Colors.red),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '3. YouTube Video Link (Built-in Player Embed)',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E3A8A),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Farmers will watch this video directly inside the app with built-in playback controls.',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _ytTitleController,
-                    decoration: InputDecoration(
-                      labelText: 'Video Title',
-                      hintText: 'e.g. Scientific Cotton Cultivation Guide',
-                      prefixIcon: const Icon(Icons.title),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _ytUrlController,
-                    onChanged: (val) {
-                      setState(() {});
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'YouTube Video URL',
-                      hintText: 'https://www.youtube.com/watch?v=...',
-                      prefixIcon: const Icon(Icons.play_circle_fill, color: Colors.red),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // YouTube Player Live Preview Stage
-                  if (_ytUrlController.text.trim().isNotEmpty) ...[
-                    const Text(
-                      'Live Video Preview:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    YoutubePlayerWidget(
-                      videoUrl: _ytUrlController.text.trim(),
-                      videoTitle: _ytTitleController.text.trim(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Publish Button
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 3,
-            ),
-            icon: const Icon(Icons.cloud_upload_rounded),
-            label: Text(
-              'Publish Educational Guide for $_selectedCrop',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            onPressed: _publishEducationModule,
-          ),
-          const SizedBox(height: 30),
-        ],
-      ),
-    );
-  }
-
-  void _publishEducationModule() {
-    final writtenText = _writtenGuideController.text.trim();
-    final audioUrl = _audioUrlController.text.trim();
-    final ytUrl = _ytUrlController.text.trim();
-    final ytTitle = _ytTitleController.text.trim();
-
-    _adminService.saveCropEducationData(
-      cropName: _selectedCrop,
-      writtenGuideText: writtenText,
-      audioUrl: audioUrl,
-      youtubeUrls: ytUrl.isNotEmpty ? [ytUrl] : [],
-      videoTitles: ytTitle.isNotEmpty ? [ytTitle] : [],
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Successfully published education content for $_selectedCrop!'),
-        backgroundColor: const Color(0xFF059669),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   void _showCsvUploadDialog() {
     _csvInputController.clear();
@@ -818,7 +519,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.08),
+            color: color.withAlpha(20),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -829,29 +530,33 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withAlpha(25),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -871,13 +576,10 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-                (route) => false,
-              );
+              await FirebaseAuth.instance.signOut();
+              // AuthGate will automatically redirect to WelcomeScreen
             },
             child: const Text('Sign Out', style: TextStyle(color: Colors.white)),
           ),
@@ -888,10 +590,10 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
 
   // ─── TAB 3: TASKS MANAGEMENT ───────────────────────────────────
   Widget _buildTasksTab() {
-    final _taskTitleController = TextEditingController();
-    final _taskDescController  = TextEditingController();
-    final _taskCoinsController = TextEditingController();
-    String? _taskCrop = _cropOptions.first;
+    final taskTitleController = TextEditingController();
+    final taskDescController  = TextEditingController();
+    final taskCoinsController = TextEditingController();
+    String? taskCrop = _cropOptions.first;
 
     return StatefulBuilder(
       builder: (context, setLocal) {
@@ -906,7 +608,7 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)],
+                  boxShadow: [BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 10)],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -914,30 +616,35 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                     const Row(children: [
                       Icon(Icons.add_task, color: Color(0xFF1E3A8A)),
                       SizedBox(width: 8),
-                      Text('Publish New Task', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                      Expanded(
+                        child: Text(
+                          'Publish New Task',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ]),
                     const SizedBox(height: 20),
-                    // Crop selector
                     DropdownButtonFormField<String>(
-                      value: _taskCrop,
+                      value: taskCrop,
                       decoration: _inputDecor('Select Crop', Icons.eco_outlined),
                       items: _cropOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                      onChanged: (v) => setLocal(() => _taskCrop = v),
+                      onChanged: (v) => setLocal(() => taskCrop = v),
                     ),
                     const SizedBox(height: 12),
                     TextField(
-                      controller: _taskTitleController,
+                      controller: taskTitleController,
                       decoration: _inputDecor('Task Title', Icons.title),
                     ),
                     const SizedBox(height: 12),
                     TextField(
-                      controller: _taskDescController,
+                      controller: taskDescController,
                       maxLines: 3,
                       decoration: _inputDecor('Task Description', Icons.description_outlined),
                     ),
                     const SizedBox(height: 12),
                     TextField(
-                      controller: _taskCoinsController,
+                      controller: taskCoinsController,
                       keyboardType: TextInputType.number,
                       decoration: _inputDecor('Green Coin Reward', Icons.monetization_on_outlined),
                     ),
@@ -950,10 +657,10 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                         label: const Text('Publish Task', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         onPressed: () async {
-                          final title = _taskTitleController.text.trim();
-                          final desc  = _taskDescController.text.trim();
-                          final coins = int.tryParse(_taskCoinsController.text.trim()) ?? 0;
-                          if (title.isEmpty || desc.isEmpty || coins <= 0 || _taskCrop == null) {
+                          final title = taskTitleController.text.trim();
+                          final desc  = taskDescController.text.trim();
+                          final coins = int.tryParse(taskCoinsController.text.trim()) ?? 0;
+                          if (title.isEmpty || desc.isEmpty || coins <= 0 || taskCrop == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Please fill all fields'), backgroundColor: Colors.redAccent),
                             );
@@ -961,19 +668,19 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                           }
                           try {
                             await FirebaseFirestore.instance.collection('tasks').add({
-                              'crop': _taskCrop,
+                              'crop': taskCrop,
                               'title': title,
                               'description': desc,
                               'coinsReward': coins,
                               'publishedAt': FieldValue.serverTimestamp(),
                               'active': true,
                             });
-                            _taskTitleController.clear();
-                            _taskDescController.clear();
-                            _taskCoinsController.clear();
+                            taskTitleController.clear();
+                            taskDescController.clear();
+                            taskCoinsController.clear();
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Task published for $_taskCrop!'), backgroundColor: Colors.green.shade700),
+                                SnackBar(content: Text('Task published for $taskCrop!'), backgroundColor: Colors.green.shade700),
                               );
                             }
                           } catch (e) {
@@ -1027,19 +734,22 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
-                                      child: Text(d['crop'] ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(8)),
-                                      child: Text('+${d['coinsReward']} coins', style: const TextStyle(fontSize: 11, color: Color(0xFFB8860B), fontWeight: FontWeight.bold)),
-                                    ),
-                                  ]),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
+                                        child: Text(d['crop'] ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(8)),
+                                        child: Text('+${d['coinsReward']} coins', style: const TextStyle(fontSize: 11, color: Color(0xFFB8860B), fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 6),
                                   Text(d['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                                   const SizedBox(height: 4),
