@@ -74,6 +74,26 @@ class TranslationService extends ChangeNotifier {
       'hi': 'नया खाता बनाएं',
       'mr': 'नवीन खाते तयार करा',
     },
+    'google_signin': {
+      'en': 'Continue with Google',
+      'hi': 'गूगल से जारी रखें (Google Sign-In)',
+      'mr': 'गुगलसह पुढे जा (Google Sign-In)',
+    },
+    'official_admin_login': {
+      'en': 'Govt Officer / Admin Portal',
+      'hi': 'शासकीय अधिकारी पोर्टल',
+      'mr': 'शासकीय अधिकारी पोर्टल',
+    },
+    'project_info_title': {
+      'en': 'About Integrated Agri Hub Initiative',
+      'hi': 'एकीकृत कृषि केंद्र परियोजना की जानकारी',
+      'mr': 'एकात्मिक कृषी केंद्र प्रकल्पाची माहिती',
+    },
+    'project_vision': {
+      'en': 'A Unified Digital Public Infrastructure (DPI) empowering Farmers, Agri-Dealers, and Agricultural Officers with AI agronomy, transparent price discovery, and sustainable green rewards.',
+      'hi': 'एक एकीकृत डिजिटल पब्लिक इन्फ्रास्ट्रक्चर जो किसानों, कृषि व्यापारियों और अधिकारियों को AI कृषि परामर्श, पारदर्शी मंडी भाव और ग्रीन कॉइन्स से सशक्त बनाता है।',
+      'mr': 'एक एकात्मिक डिजिटल पब्लिक इन्फ्रास्ट्रक्चर जे शेतकरी, कृषी व्यावसायिक आणि अधिकाऱ्यांना AI कृषी सल्ला, थेट बाजार भाव आणि ग्रीन कॉइन्सने सक्षम करते.',
+    },
     'email': {
       'en': 'Email Address',
       'hi': 'ईमेल पता',
@@ -118,6 +138,116 @@ class TranslationService extends ChangeNotifier {
       'en': 'Sign Out',
       'hi': 'लॉग आउट',
       'mr': 'लॉग आउट',
+    },
+    'welcome_hero_title': {
+      'en': 'Your Complete Smart Farming Ecosystem',
+      'hi': 'किसान और दुकानदार की हर ज़रूरत, एक ही मंच पर',
+      'mr': 'शेतकरी आणि दुकानदारांसाठी संपूर्ण स्मार्ट शेती व्यासपीठ',
+    },
+    'welcome_hero_subtitle': {
+      'en': 'AI Crop Doctor • Live Mandi Prices • Weather Advisories • Agri Supplies & Green Rewards',
+      'hi': 'AI फसल डॉक्टर • लाइव मंडी भाव • मौसम सलाह • कृषि सामग्री और ग्रीन कॉइन्स',
+      'mr': 'AI पीक डॉक्टर • थेट बाजार भाव • हवामान सल्ला • कृषी साहित्य आणि ग्रीन कॉइन्स',
+    },
+    'explore_features': {
+      'en': 'Explore What You Can Do',
+      'hi': 'ऐप की मुख्य सुविधाएं देखें',
+      'mr': 'ॲपची प्रमुख वैशिष्ट्ये पहा',
+    },
+    'feature_ai_doctor': {
+      'en': 'AI Crop Doctor',
+      'hi': 'AI फसल डॉक्टर',
+      'mr': 'AI पीक डॉक्टर',
+    },
+    'feature_ai_doctor_desc': {
+      'en': 'Scan plant leaves to instantly detect diseases, pests and get organic remedy solutions.',
+      'hi': 'पौधों की पत्तियों को स्कैन कर तुरंत रोग व कीट पहचानें और जैविक उपचार पाएं।',
+      'mr': 'पाने स्कॅन करून त्वरित रोग व किडींचे निदान करा आणि सेंद्रिय उपाय मिळवा.',
+    },
+    'feature_mandi': {
+      'en': 'Live APMC Mandi Rates',
+      'hi': 'ताज़ा मंडी भाव (APMC)',
+      'mr': 'थेट कृषी बाजार भाव (APMC)',
+    },
+    'feature_mandi_desc': {
+      'en': 'Real-time daily market rates across districts to sell your harvest at the best price.',
+      'hi': 'ज़िलावार दैनिक मंडी भाव देखें और अपनी उपज का सही व उच्चतम मूल्य प्राप्त करें।',
+      'mr': 'जिल्ह्यानुसार रोजचे बाजार भाव तपासा आणि आपल्या शेतमालाला सर्वोत्तम भाव मिळवा.',
+    },
+    'feature_weather': {
+      'en': 'Weather & Farm Advisories',
+      'hi': 'मौसम एवं कृषि परामर्श',
+      'mr': 'हवामान आणि शेती सल्ला',
+    },
+    'feature_weather_desc': {
+      'en': 'Hyperlocal forecasts, rain alerts and tailored spraying & irrigation advice.',
+      'hi': 'सटीक बारिश का पूर्वानुमान, छिड़काव और सिंचाई के लिए जरूरी मौसम सलाह।',
+      'mr': 'अचूक पावसाचा अंदाज, फवारणी आणि सिंचनासाठी आवश्यक हवामान मार्गदर्शन.',
+    },
+    'feature_network': {
+      'en': 'Verified Shopkeepers Network',
+      'hi': 'प्रमाणित कृषि दुकानदार',
+      'mr': 'नोंदणीकृत कृषी दुकानदार',
+    },
+    'feature_network_desc': {
+      'en': 'Connect directly with trusted local agri-dealers for genuine seeds, fertilizers and tools.',
+      'hi': 'खाद, बीज और कृषि उपकरणों के लिए अपने नज़दीकी सत्यापित डीलरों से सीधे जुड़ें।',
+      'mr': 'खते, बियाणे आणि अवजारांसाठी जवळच्या विश्वासू विक्रेत्यांशी थेट संपर्क साधा.',
+    },
+    'feature_coins': {
+      'en': 'Green Coins & Rewards',
+      'hi': 'ग्रीन कॉइन्स एवं पुरस्कार',
+      'mr': 'ग्रीन कॉइन्स आणि बक्षिसे',
+    },
+    'feature_coins_desc': {
+      'en': 'Complete sustainable tasks & daily quizzes to earn Green Coins and redeem discounts.',
+      'hi': 'दैनिक क्विज़ और कृषि कार्यों से कॉइन्स कमाएं और विशेष छूट प्राप्त करें।',
+      'mr': 'दैनिक प्रश्नमंजुषा व शेती कामांतून कॉइन्स कमवा आणि आकर्षक सवलती मिळवा.',
+    },
+    'how_it_works': {
+      'en': 'How It Works',
+      'hi': 'यह कैसे काम करता है?',
+      'mr': 'हे कसे कार्य करते?',
+    },
+    'step1_title': {
+      'en': '1. Quick Registration',
+      'hi': '1. आसान पंजीकरण',
+      'mr': '1. सोपी नोंदणी',
+    },
+    'step1_desc': {
+      'en': 'Sign up as a Farmer or Shopkeeper in under a minute with your details.',
+      'hi': 'किसान या दुकानदार के रूप में 1 मिनट में अपना खाता बनाएं।',
+      'mr': 'शेतकरी किंवा दुकानदार म्हणून एका मिनिटात आपले खाते तयार करा.',
+    },
+    'step2_title': {
+      'en': '2. Access Smart Tools',
+      'hi': '2. स्मार्ट टूल्स का उपयोग',
+      'mr': '2. स्मार्ट टूल्सचा वापर',
+    },
+    'step2_desc': {
+      'en': 'Get AI recommendations, track live mandi prices, and check local weather.',
+      'hi': 'AI सलाह पाएं, लाइव मंडी भाव ट्रैक करें और मौसम की जानकारी लें।',
+      'mr': 'AI सल्ला मिळवा, थेट बाजार भाव तपासा आणि हवामानाची माहिती घ्या.',
+    },
+    'step3_title': {
+      'en': '3. Earn & Grow',
+      'hi': '3. कमाएं और समृद्धि पाएं',
+      'mr': '3. कमवा आणि समृद्ध व्हा',
+    },
+    'step3_desc': {
+      'en': 'Earn Green Coins, build your farm streak, and maximize your farm revenue.',
+      'hi': 'ग्रीन कॉइन्स कमाएं, अपनी स्ट्रीक बनाएं और खेती का मुनाफा बढ़ाएं।',
+      'mr': 'ग्रीन कॉइन्स मिळवा, स्ट्रीक कायम ठेवा आणि शेतीतील नफा वाढवा.',
+    },
+    'get_started': {
+      'en': 'Get Started / Register',
+      'hi': 'शुरू करें / नया खाता बनाएं',
+      'mr': 'सुरु करा / नोंदणी करा',
+    },
+    'about_app_desc': {
+      'en': 'Integrated Agri Hub connects farmers, shopkeepers, and agricultural experts into a unified digital platform. From AI-powered crop disease detection to live market prices and Green Coin rewards, we empower every stakeholder in agriculture.',
+      'hi': 'एकीकृत कृषि केंद्र किसानों, दुकानदारों और कृषि विशेषज्ञों को एक मंच पर जोड़ता है। AI फसल रोग पहचान से लेकर लाइव मंडी भाव और ग्रीन कॉइन्स पुरस्कारों तक, हम कृषि के हर पहलू को समृद्ध बनाते हैं।',
+      'mr': 'एकात्मिक कृषी केंद्र शेतकरी, दुकानदार आणि कृषी तज्ञांना एकाच मंचावर एकत्र आणते. AI पीक रोग निदानापासून थेट बाजार भाव आणि ग्रीन कॉइन्स बक्षिसांपर्यंत, आम्ही शेतीच्या प्रत्येक टप्प्यावर मदत करतो.',
     },
 
     // --- Dashboard Tabs & Common Navigation ---

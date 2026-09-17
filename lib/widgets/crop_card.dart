@@ -5,7 +5,7 @@ import '../screens/crop_detail_screen.dart';
 class CropCard extends StatelessWidget {
   final CropEducationData cropData;
 
-  const CropCard({Key? key, required this.cropData}) : super(key: key);
+  const CropCard({super.key, required this.cropData});
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class YoutubePlayerWidget extends StatefulWidget {
@@ -6,26 +7,17 @@ class YoutubePlayerWidget extends StatefulWidget {
   final String? videoTitle;
 
   const YoutubePlayerWidget({
-    Key? key,
+    super.key,
     required this.videoUrl,
     this.videoTitle,
-  }) : super(key: key);
+  });
 
   static String? extractVideoId(String url) {
     if (url.isEmpty) return null;
-    final regExp = RegExp(
-      r'^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})',
-      caseSensitive: false,
-    );
-    final match = regExp.firstMatch(url);
-    if (match != null && match.groupCount >= 1) {
-      return match.group(1);
-    }
-    // Fallback if raw 11-char ID passed
-    if (url.length == 11 && !url.contains('/')) {
-      return url;
-    }
-    return null;
+    return RegExp(
+            r'^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})')
+        .firstMatch(url)
+        ?.group(1);
   }
 
   @override
@@ -33,26 +25,61 @@ class YoutubePlayerWidget extends StatefulWidget {
 }
 
 class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
-  bool _isPlaying = false;
-  double _progress = 0.25;
+  late YoutubePlayerController _controller;
+  String? _videoId;
+
+  @override
+  void initState() {
+    super.initState();
+    _videoId = YoutubePlayerWidget.extractVideoId(widget.videoUrl);
+
+    if (_videoId != null) {
+      _controller = YoutubePlayerController.fromVideoId(
+        videoId: _videoId!,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          mute: false,
+          enableCaption: true,
+          captionLanguage: 'hi',
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_videoId != null) {
+      _controller.close();
+    }
+    super.dispose();
+  }
+
+  void _openExternalYoutube() async {
+    final uri = Uri.parse(widget.videoUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final videoId = YoutubePlayerWidget.extractVideoId(widget.videoUrl);
-    final title = widget.videoTitle ?? 'Agricultural Tutorial Video';
-    final thumbnailUrl = videoId != null
-        ? 'https://img.youtube.com/vi/$videoId/hqdefault.jpg'
-        : null;
+    if (_videoId == null) {
+      return _buildFallbackCard('Invalid Video URL');
+    }
+
+    final title = widget.videoTitle ?? 'कृषि वैज्ञानिक वीडियो मार्गदर्शन';
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF334155)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -61,198 +88,95 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Video Player / Thumbnail Stage
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: thumbnailUrl != null
-                    ? Image.network(
-                        thumbnailUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildFallbackStage(),
-                      )
-                    : _buildFallbackStage(),
-              ),
-
-              // Dark Overlay Gradient
-              Positioned.fill(
-                child: Container(
+          // ── Top Title Bar ──
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+            color: const Color(0xFF1E293B),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.black.withValues(alpha: _isPlaying ? 0.2 : 0.4),
-                        Colors.black.withValues(alpha: _isPlaying ? 0.3 : 0.6),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    color: Colors.red.shade700,
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                ),
-              ),
-
-              // Title Header overlay
-              Positioned(
-                top: 12,
-                left: 12,
-                right: 12,
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade700,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.play_circle_fill, color: Colors.white, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            'YouTube',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.play_circle_fill, color: Colors.white, size: 13),
+                      SizedBox(width: 4),
+                      Text(
+                        'YouTube In-App',
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Play / Pause Button in Center
-              GestureDetector(
-                onTap: () async {
-                  final url = widget.videoUrl;
-                  if (await canLaunchUrl(Uri.parse(url))) {
-                    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: _isPlaying
-                        ? Colors.black45
-                        : Colors.red.shade600,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: Icon(
-                    _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 40,
-                  ),
                 ),
-              ),
-
-              // Playing Status Indicator
-              if (_isPlaying)
-                Positioned(
-                  bottom: 40,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.graphic_eq, color: Colors.greenAccent, size: 16),
-                        SizedBox(width: 6),
-                        Text(
-                          'Playing Video...',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-            ],
+                IconButton(
+                  icon: const Icon(Icons.open_in_new_rounded, color: Color(0xFF94A3B8), size: 18),
+                  tooltip: 'Open in YouTube App',
+                  onPressed: _openExternalYoutube,
+                ),
+              ],
+            ),
           ),
 
-          // Player Control Bar
+          // ── Embedded YouTube IFrame Player ──
+          YoutubePlayer(
+            controller: _controller,
+            aspectRatio: 16 / 9,
+          ),
+
+          // ── Interactive Bottom Controls Bar ──
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: const Color(0xFF1E1E1E),
-            child: Column(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            color: const Color(0xFF0F172A),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Slider timeline
-                SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 3,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    activeTrackColor: Colors.red.shade600,
-                    inactiveTrackColor: Colors.white24,
-                    thumbColor: Colors.red.shade600,
-                  ),
-                  child: Slider(
-                    value: _progress,
-                    onChanged: (val) {
-                      setState(() {
-                        _progress = val;
-                      });
-                    },
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const Row(
                   children: [
+                    Icon(Icons.hd_outlined, color: Color(0xFFFBBF24), size: 16),
+                    SizedBox(width: 6),
                     Text(
-                      '${(_progress * 10).toStringAsFixed(1)} / 10:00',
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: Icon(
-                            _isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          onPressed: () async {
-                            final url = widget.videoUrl;
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.volume_up, color: Colors.white70, size: 18),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.fullscreen, color: Colors.white70, size: 20),
-                      ],
+                      'HD In-App Video Player',
+                      style: TextStyle(
+                        color: Color(0xFF4ADE80),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
+                ),
+                TextButton.icon(
+                  onPressed: _openExternalYoutube,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(Icons.launch, color: Color(0xFF60A5FA), size: 14),
+                  label: const Text(
+                    'Full App Mode',
+                    style: TextStyle(color: Color(0xFF60A5FA), fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -262,19 +186,20 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
     );
   }
 
-  Widget _buildFallbackStage() {
+  Widget _buildFallbackCard(String message) {
     return Container(
-      color: const Color(0xFF1A237E),
-      child: const Center(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.video_library_rounded, size: 48, color: Colors.white70),
-            SizedBox(height: 8),
-            Text(
-              'Government Agri Education Video',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+            const Icon(Icons.video_library_rounded, size: 40, color: Colors.white54),
+            const SizedBox(height: 8),
+            Text(message, style: const TextStyle(color: Colors.white70, fontSize: 13)),
           ],
         ),
       ),

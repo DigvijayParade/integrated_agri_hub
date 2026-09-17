@@ -7,7 +7,7 @@ import '../services/ai_service.dart';
 class CropDetailScreen extends StatefulWidget {
   final CropEducationData cropData;
 
-  const CropDetailScreen({Key? key, required this.cropData}) : super(key: key);
+  const CropDetailScreen({super.key, required this.cropData});
 
   @override
   State<CropDetailScreen> createState() => _CropDetailScreenState();

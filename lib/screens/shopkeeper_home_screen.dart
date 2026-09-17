@@ -418,9 +418,31 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
               onTap: () async {
-                UserService().clearCache();
-                await FirebaseAuth.instance.signOut();
-                // AuthGate will automatically redirect to WelcomeScreen
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Log Out'),
+                    content: const Text('Are you sure you want to log out of Integrated Agri Hub?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Log Out'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  UserService().clearCache();
+                  await FirebaseAuth.instance.signOut();
+                  if (context.mounted) {
+                    Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+                  }
+                }
               },
             ),
           ]),

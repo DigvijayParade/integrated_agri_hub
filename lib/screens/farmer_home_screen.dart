@@ -1670,9 +1670,31 @@ class _ProfileModalState extends State<_ProfileModal> {
                 title: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red)),
                 trailing: const Icon(Icons.chevron_right, color: Colors.red),
                 onTap: () async {
-                  UserService().clearCache();
-                  await FirebaseAuth.instance.signOut();
-                  // AuthGate will automatically redirect to WelcomeScreen
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Log Out'),
+                      content: const Text('Are you sure you want to log out of Integrated Agri Hub?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Log Out'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    UserService().clearCache();
+                    await FirebaseAuth.instance.signOut();
+                    if (context.mounted) {
+                      Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+                    }
+                  }
                 },
               ),
             ]),

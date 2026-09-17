@@ -32,8 +32,35 @@ class FirebaseAuthService {
     }
   }
 
+  // Sign in with Google
+  Future<User?> signInWithGoogle() async {
+    try {
+      GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      UserCredential userCredential;
+      if (kIsWeb) {
+        userCredential = await _auth.signInWithPopup(googleProvider);
+      } else {
+        userCredential = await _auth.signInWithProvider(googleProvider);
+      }
+      return userCredential.user;
+    } on FirebaseAuthException catch (e) {
+      if (kDebugMode) {
+        print("Google Sign In Error: ${e.code} - ${e.message}");
+      }
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        print("Google Sign In General Error: $e");
+      }
+      rethrow;
+    }
+  }
+
+  static final Map<String, String> _roleCache = {};
+
   // Sign out
   Future<void> signOut() async {
+    _roleCache.clear();
     await _auth.signOut();
   }
 
@@ -42,33 +69,55 @@ class FirebaseAuthService {
     return _auth.currentUser;
   }
 
-  // Save User Profile to Firestore — collection can be 'farmers', 'shopkeepers', or 'users'
+  // Save User Profile to Firestore — writes to both specified collection and primary 'users/{uid}'
   Future<void> saveUserProfile(String uid, Map<String, dynamic> userData, {String collection = 'users'}) async {
     try {
+      final role = userData['role'] as String?;
+      if (role != null) {
+        _roleCache[uid] = role;
+      }
       await _firestore.collection(collection).doc(uid).set(userData);
+      if (collection != 'users') {
+        await _firestore.collection('users').doc(uid).set(userData);
+      }
     } catch (e) {
       if (kDebugMode) print("Firestore Save Error: $e");
       rethrow;
     }
   }
 
-  // Fetch User Role from Firestore — checks farmers and shopkeepers collections first
+  // Fetch User Role from Firestore — checks cache, then farmers and shopkeepers collections
   Future<String?> getUserRole(String uid) async {
+    if (_roleCache.containsKey(uid)) {
+      return _roleCache[uid];
+    }
     try {
       // Check 'farmers' collection first
       DocumentSnapshot doc = await _firestore.collection('farmers').doc(uid).get();
       if (doc.exists && doc.data() != null) {
-        return (doc.data() as Map<String, dynamic>)['role'] as String?;
+        final role = (doc.data() as Map<String, dynamic>)['role'] as String?;
+        if (role != null) {
+          _roleCache[uid] = role;
+          return role;
+        }
       }
       // Then check 'shopkeepers' collection
       doc = await _firestore.collection('shopkeepers').doc(uid).get();
       if (doc.exists && doc.data() != null) {
-        return (doc.data() as Map<String, dynamic>)['role'] as String?;
+        final role = (doc.data() as Map<String, dynamic>)['role'] as String?;
+        if (role != null) {
+          _roleCache[uid] = role;
+          return role;
+        }
       }
       // Fallback to old 'users' collection (for existing test accounts)
       doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
-        return (doc.data() as Map<String, dynamic>)['role'] as String?;
+        final role = (doc.data() as Map<String, dynamic>)['role'] as String?;
+        if (role != null) {
+          _roleCache[uid] = role;
+          return role;
+        }
       }
     } catch (e) {
       if (kDebugMode) print("Firestore Get Role Error: $e");

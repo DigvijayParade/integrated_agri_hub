@@ -5,7 +5,7 @@ import 'youtube_player_widget.dart';
 class MediaPanel extends StatelessWidget {
   final CropEducationData cropData;
 
-  const MediaPanel({Key? key, required this.cropData}) : super(key: key);
+  const MediaPanel({super.key, required this.cropData});
 
   @override
   Widget build(BuildContext context) {

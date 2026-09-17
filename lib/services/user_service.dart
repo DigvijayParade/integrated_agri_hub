@@ -200,7 +200,6 @@ class UserService {
       await _db.collection(col).doc(uid).update({
         'lastQuizDate': _today,
         'quizzesCompleted': FieldValue.increment(1),
-        'greenCoins': FieldValue.increment(100),
       });
       await updateStreakAfterActivity();
     } catch (e) {
@@ -252,8 +251,26 @@ class UserService {
     try {
       final col = await _resolveCollection();
       await _db.collection(col).doc(uid).update(fields);
+      if (col != 'users') {
+        try {
+          await _db.collection('users').doc(uid).update(fields);
+        } catch (_) {}
+      }
     } catch (e) {
       if (kDebugMode) print('UserService.updateProfile error: $e');
+    }
+  }
+
+  Future<void> updatePreferredLanguage(String langCode) async {
+    final uid = currentUid;
+    if (uid == null) return;
+    try {
+      final col = await _resolveCollection();
+      await _db.collection(col).doc(uid).update({
+        'preferred_language': langCode,
+      });
+    } catch (e) {
+      if (kDebugMode) print('UserService.updatePreferredLanguage error: $e');
     }
   }
 

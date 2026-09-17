@@ -15,7 +15,6 @@ class TextAudioPanel extends StatefulWidget {
 }
 
 class _TextAudioPanelState extends State<TextAudioPanel> {
-  bool _isPlaying = false;
   bool _isGeneratingQuiz = false;
 
   void _toggleAudio() async {

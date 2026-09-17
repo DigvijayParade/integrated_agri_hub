@@ -50,26 +50,22 @@ class _AuthGateState extends State<AuthGate> {
       builder: (context, snapshot) {
         // Still loading Firebase auth state
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const _AppSplashScreen();
         }
 
         final user = snapshot.data;
 
-        // Not logged in — show welcome/login screen
+        // Not logged in — show informative Welcome / App Discovery screen
         if (user == null) {
           return const WelcomeScreen();
         }
 
-        // Already logged in — resolve role and route to correct home screen
+        // Already logged in — resolve role and route directly to their dashboard
         return FutureBuilder<String?>(
           future: _authService.getUserRole(user.uid),
           builder: (context, roleSnapshot) {
             if (roleSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
+              return const _AppSplashScreen();
             }
 
             final role = roleSnapshot.data;
@@ -78,12 +74,83 @@ class _AuthGateState extends State<AuthGate> {
             } else if (role == 'admin') {
               return const AdminHomeScreen();
             } else {
-              // Default to farmer home (or welcome if role is unknown)
-              return role != null ? const FarmerHomeScreen() : const WelcomeScreen();
+              // Default to farmer home whenever an active session exists
+              return const FarmerHomeScreen();
             }
           },
         );
       },
+    );
+  }
+}
+
+/// Branded splash screen shown during fast session verification
+class _AppSplashScreen extends StatelessWidget {
+  const _AppSplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundCream,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [AppTheme.lightGreen, AppTheme.primaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryGreen.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.eco,
+                color: Colors.white,
+                size: 48,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Integrated Agri Hub',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryGreen,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Connecting Farmers & Agri-Commerce',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.black.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryGreen),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

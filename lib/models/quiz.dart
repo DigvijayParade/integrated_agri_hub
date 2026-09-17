@@ -6,10 +6,22 @@ class Question {
   Question({required this.text, required this.options, required this.correctIndex});
 
   factory Question.fromJson(Map<String, dynamic> json) {
+    final rawOptions = List<String>.from(json['options'] ?? []);
+    final rawCorrectIndex = json['correctIndex'] ?? 0;
+    
+    // Shuffle options while keeping track of the correct answer
+    String correctText = '';
+    if (rawOptions.isNotEmpty && rawCorrectIndex >= 0 && rawCorrectIndex < rawOptions.length) {
+      correctText = rawOptions[rawCorrectIndex];
+    }
+    
+    final shuffledOptions = List<String>.from(rawOptions)..shuffle();
+    final newCorrectIndex = shuffledOptions.indexOf(correctText);
+    
     return Question(
       text: json['text'] ?? '',
-      options: List<String>.from(json['options'] ?? []),
-      correctIndex: json['correctIndex'] ?? 0,
+      options: shuffledOptions,
+      correctIndex: newCorrectIndex != -1 ? newCorrectIndex : 0,
     );
   }
 }
