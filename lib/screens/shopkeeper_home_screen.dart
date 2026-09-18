@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
@@ -884,8 +885,108 @@ class _LedgerViewState extends State<_LedgerView> {
 }
 
 // === SCAN & SUBSIDY VIEW ===
-class _ScanSubsidyView extends StatelessWidget {
+class _ScanSubsidyView extends StatefulWidget {
   const _ScanSubsidyView();
+  @override
+  State<_ScanSubsidyView> createState() => _ScanSubsidyViewState();
+}
+
+class _ScanSubsidyViewState extends State<_ScanSubsidyView> {
+  bool _isProcessing = false;
+
+  Future<void> _handleScanResult(String result) async {
+    try {
+      final data = jsonDecode(result);
+      if (data['uid'] == null || data['name'] == null) {
+        throw Exception("Invalid QR Format");
+      }
+      final farmerUid = data['uid'];
+      final farmerName = data['name'];
+
+      // Show dialog to enter amount
+      final amountCtrl = TextEditingController();
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Redeem Coins from $farmerName'),
+          content: TextField(
+            controller: amountCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Green Coins to Deduct (10 coins = ₹1)'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: _kGreen),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Redeem', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        )
+      );
+
+      if (confirm == true && amountCtrl.text.isNotEmpty) {
+        final amount = int.tryParse(amountCtrl.text) ?? 0;
+        if (amount <= 0) return;
+
+        setState(() => _isProcessing = true);
+
+        // Fetch farmer balance
+        final farmerDoc = await FirebaseFirestore.instance.collection('farmers').doc(farmerUid).get();
+        if (!farmerDoc.exists) throw Exception("Farmer not found");
+        final currentBalance = farmerDoc.data()?['greenCoins'] ?? 0;
+
+        if (amount > currentBalance) {
+          throw Exception("Insufficient Balance. Farmer has only $currentBalance coins.");
+        }
+
+        // Process Transaction (Batched)
+        final shopUid = FirebaseAuth.instance.currentUser!.uid;
+        final batch = FirebaseFirestore.instance.batch();
+
+        // 1. Deduct from farmer
+        batch.update(farmerDoc.reference, {
+          'greenCoins': FieldValue.increment(-amount),
+        });
+
+        // 2. Add to shopkeeper
+        final shopRef = FirebaseFirestore.instance.collection('shopkeepers').doc(shopUid);
+        batch.update(shopRef, {
+          'greenCoinsReceived': FieldValue.increment(amount),
+        });
+
+        // 3. Log in farmer's ledger
+        final fTx = farmerDoc.reference.collection('transactions').doc();
+        batch.set(fTx, {
+          'name': 'Redeemed at Store',
+          'amount': '-$amount',
+          'credit': false,
+          'dt': DateTime.now().toString(),
+          'timestamp': FieldValue.serverTimestamp(),
+          'id': fTx.id,
+        });
+
+        await batch.commit();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Successfully redeemed $amount coins!'), backgroundColor: _kGreen));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Scan Error', style: TextStyle(color: Colors.red)),
+            content: Text(e.toString()),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          )
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -899,12 +1000,14 @@ class _ScanSubsidyView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(32),
                 decoration: const BoxDecoration(color: _kLightGreen, shape: BoxShape.circle),
-                child: const Icon(Icons.qr_code_scanner, size: 80, color: _kGreen),
+                child: _isProcessing 
+                    ? const CircularProgressIndicator(color: _kGreen)
+                    : const Icon(Icons.qr_code_scanner, size: 80, color: _kGreen),
               ),
               const SizedBox(height: 32),
               const Text('Verify & Apply Subsidy', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _kDarkGreen)),
               const SizedBox(height: 16),
-              const Text('Scan a farmer\'s digital ID or a product QR code to verify authenticity and process government subsidies.',
+              const Text('Scan a farmer\'s digital ID to verify authenticity and deduct Green Coins for store discounts.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black54, fontSize: 16, height: 1.5),
               ),
@@ -915,29 +1018,10 @@ class _ScanSubsidyView extends StatelessWidget {
                   icon: const Icon(Icons.camera_alt, color: Colors.white),
                   label: const Text('Open Scanner', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(backgroundColor: _kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                  onPressed: () async {
+                  onPressed: _isProcessing ? null : () async {
                     final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScannerScreen()));
                     if (result != null && context.mounted) {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          title: const Row(
-                            children: [
-                              Icon(Icons.verified, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text('Verified', style: TextStyle(color: _kDarkGreen)),
-                            ],
-                          ),
-                          content: Text('Scanned Data: $result\n\nSubsidy successfully applied to this transaction.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('OK', style: TextStyle(color: _kGreen, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        )
-                      );
+                      await _handleScanResult(result);
                     }
                   },
                 ),
@@ -949,3 +1033,4 @@ class _ScanSubsidyView extends StatelessWidget {
     );
   }
 }
+

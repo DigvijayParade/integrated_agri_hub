@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if the user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Check if the user is an admin
+    function isAdmin() {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Check if the user is a shopkeeper
+    function isShopkeeper() {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'shopkeeper';
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow write: if request.auth.uid == userId || isAdmin();
+    }
+
+    match /farmers/{farmerId} {
+      allow read: if isAuth();
+      // Farmer can update their own profile.
+      // Shopkeeper can update farmer's greenCoins for redemption.
+      allow update: if request.auth.uid == farmerId || isShopkeeper() || isAdmin();
+      allow create, delete: if request.auth.uid == farmerId || isAdmin();
+      
+      // Farmer's transactions
+      match /transactions/{txId} {
+        allow read: if request.auth.uid == farmerId || isAdmin();
+        // Shopkeeper can create a transaction when redeeming
+        allow create: if request.auth.uid == farmerId || isShopkeeper() || isAdmin();
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    match /shopkeepers/{shopId} {
+      allow read: if isAuth();
+      allow write: if request.auth.uid == shopId || isAdmin();
+    }
+    
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /quizzes/{quizId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

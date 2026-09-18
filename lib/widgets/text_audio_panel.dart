@@ -4,6 +4,7 @@ import '../models/crop_education_data.dart';
 import '../models/quiz.dart';
 import '../services/ai_service.dart';
 import '../services/user_service.dart';
+import '../services/tts_service.dart';
 
 class TextAudioPanel extends StatefulWidget {
   final CropEducationData cropData;
@@ -17,15 +18,34 @@ class TextAudioPanel extends StatefulWidget {
 class _TextAudioPanelState extends State<TextAudioPanel> {
   bool _isGeneratingQuiz = false;
 
-  void _toggleAudio() async {
-    final url = widget.cropData.audioUrl;
-    if (url.isNotEmpty && url.startsWith('http')) {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    }
+  @override
+  void initState() {
+    super.initState();
+    TtsService().addListener(_onTtsChanged);
   }
+
+  void _onTtsChanged() {
+    if (mounted) setState(() {});
+  }
+  
+  @override
+  void dispose() {
+    TtsService().removeListener(_onTtsChanged);
+    TtsService().stop();
+    super.dispose();
+  }
+
+  void _toggleAudio() async {
+    final tts = TtsService();
+    if (tts.isPlaying) {
+      await tts.stop();
+    } else {
+      await tts.speak(widget.cropData.writtenGuideText);
+    }
+    setState(() {});
+  }
+  
+
 
   void _openLinkedQuiz(BuildContext context) async {
     setState(() => _isGeneratingQuiz = true);
@@ -184,12 +204,12 @@ class _TextAudioPanelState extends State<TextAudioPanel> {
                 ElevatedButton.icon(
                   onPressed: _toggleAudio,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryGreen,
+                    backgroundColor: TtsService().isPlaying ? Colors.red : primaryGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('Listen'),
+                  icon: Icon(TtsService().isPlaying ? Icons.stop : Icons.play_arrow, size: 18),
+                  label: Text(TtsService().isPlaying ? 'Stop' : 'Listen'),
                 ),
               ],
             ),

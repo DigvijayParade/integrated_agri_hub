@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:integrated_agri_hub/services/tts_service.dart';
 
 enum AppLanguage { english, hindi, marathi }
 
@@ -36,13 +37,21 @@ class TranslationService extends ChangeNotifier {
 
   void setLanguage(String lang) {
     final lower = lang.toLowerCase();
+    String ttsLang = "en-US";
     if (lower.contains('hindi') || lower.contains('हिंदी') || lower == 'hi') {
       _currentLanguage = AppLanguage.hindi;
+      ttsLang = "hi-IN";
     } else if (lower.contains('marathi') || lower.contains('मराठी') || lower == 'mr') {
       _currentLanguage = AppLanguage.marathi;
+      ttsLang = "mr-IN";
     } else {
       _currentLanguage = AppLanguage.english;
+      ttsLang = "en-US";
     }
+    
+    // Sync TTS Engine
+    TtsService().setLanguage(ttsLang);
+    
     notifyListeners();
   }
 
@@ -498,38 +507,7 @@ class TranslationService extends ChangeNotifier {
     return map?['en'] ?? key;
   }
 
-  /// Dynamic Translator: Translates any dynamic text using Google Translate free endpoint
-  Future<String> translateDynamicText(String text, {String? targetLang}) async {
-    final target = targetLang ?? currentLanguageCode;
-    if (target == 'en' || text.trim().isEmpty) return text;
 
-    try {
-      final uri = Uri.parse(
-        'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=$target&dt=t&q=${Uri.encodeComponent(text)}',
-      );
-      final client = HttpClient();
-      final request = await client.getUrl(uri).timeout(const Duration(seconds: 4));
-      final response = await request.close();
-      if (response.statusCode == 200) {
-        final responseBody = await response.transform(utf8.decoder).join();
-        final List jsonResponse = jsonDecode(responseBody);
-        if (jsonResponse.isNotEmpty && jsonResponse[0] is List) {
-          final buffer = StringBuffer();
-          for (var item in jsonResponse[0]) {
-            if (item is List && item.isNotEmpty) {
-              buffer.write(item[0]);
-            }
-          }
-          final result = buffer.toString().trim();
-          if (result.isNotEmpty) return result;
-        }
-      }
-    } catch (_) {
-      // Fallback to original text if offline
-    }
-
-    return text;
-  }
 }
 
 extension StringTranslateExtension on String {

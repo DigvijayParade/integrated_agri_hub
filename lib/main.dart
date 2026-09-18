@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:integrated_agri_hub/screens/welcome_screen.dart';
 import 'package:integrated_agri_hub/screens/farmer_home_screen.dart';
@@ -6,6 +7,7 @@ import 'package:integrated_agri_hub/screens/admin_home_screen.dart';
 import 'package:integrated_agri_hub/services/firebase_auth_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:integrated_agri_hub/theme/app_theme.dart';
 
@@ -13,6 +15,26 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await dotenv.load(fileName: ".env");
+
+  // --- Firebase Crashlytics Setup ---
+  // Pass all uncaught Flutter framework errors to Crashlytics
+  FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+  };
+
+  // Pass all uncaught asynchronous errors to Crashlytics
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+
+  // Set user identifier when auth state changes for better crash triage
+  FirebaseAuth.instance.authStateChanges().listen((user) {
+    if (user != null) {
+      FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
+    }
+  });
+
   runApp(const MyApp());
 }
 

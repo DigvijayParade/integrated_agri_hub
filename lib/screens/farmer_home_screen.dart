@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -212,19 +213,15 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
             notchMargin: 10.0,
             elevation: 12,
             shadowColor: Colors.black26,
-            child: SizedBox(
-              height: 64,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Row(
                 children: [
-                  _buildNavItem(Icons.home_outlined, Icons.home, TranslationService.tr('dashboard'), 0),
-                  _buildNavItem(Icons.storefront_outlined, Icons.storefront, TranslationService.tr('market_prices'), 1),
+                  Expanded(child: _buildNavItem(Icons.home_outlined, Icons.home, TranslationService.tr('dashboard'), 0)),
+                  Expanded(child: _buildNavItem(Icons.storefront_outlined, Icons.storefront, TranslationService.tr('market_prices'), 1)),
                   const SizedBox(width: 56),
-                  _buildNavItem(Icons.quiz_outlined, Icons.quiz, TranslationService.tr('quizzes'), 2),
-                  _buildNavItem(Icons.school_outlined, Icons.school, TranslationService.tr('education'), 3),
+                  Expanded(child: _buildNavItem(Icons.quiz_outlined, Icons.quiz, TranslationService.tr('quizzes'), 2)),
+                  Expanded(child: _buildNavItem(Icons.school_outlined, Icons.school, TranslationService.tr('education'), 3)),
                 ],
               ),
-            ),
           ),
         );
       },
@@ -236,19 +233,22 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 64,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(sel ? activeIcon : icon, color: sel ? _kGreen : Colors.grey.shade400, size: 24),
-            const SizedBox(height: 4),
+            Icon(sel ? activeIcon : icon, color: sel ? _kGreen : Colors.grey.shade400, size: 22),
+            const SizedBox(height: 3),
             Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                     color: sel ? _kGreen : Colors.grey.shade400,
                     fontWeight: sel ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 11)),
+                    fontSize: 10)),
           ],
         ),
       ),
@@ -566,8 +566,12 @@ class _QuizViewState extends State<_QuizView> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isGenerating ? null : () => _generateAndStartQuiz(crop),
-              style: ElevatedButton.styleFrom(backgroundColor: _kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              onPressed: isGen ? null : () => _generateAndStartQuiz(crop),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kGreen,
+                disabledBackgroundColor: _kGreen.withValues(alpha: 0.7),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               child: isGen 
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Text('Start Today\'s AI Quiz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -639,7 +643,16 @@ class _QuizViewState extends State<_QuizView> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Question ${_currentQuestionIndex + 1} of ${_activeQuiz!.questions.length}', style: const TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.bold)),
-                Text(_activeQuiz!.title, style: const TextStyle(fontSize: 14, color: _kGreen, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _activeQuiz!.title, 
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, color: _kGreen, fontWeight: FontWeight.bold),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1792,6 +1805,10 @@ class _ProfileModalState extends State<_ProfileModal> {
   }
 
   void _showQr(BuildContext ctx) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final name = widget.farmerName;
+    final qrData = '{"uid":"$uid","name":"$name"}';
+
     showDialog(
       context: ctx,
       builder: (_) => AlertDialog(
@@ -1802,7 +1819,13 @@ class _ProfileModalState extends State<_ProfileModal> {
           width: 200, height: 200,
           decoration: BoxDecoration(color: Colors.white,
               border: Border.all(color: _kGreen, width: 4), borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.qr_code_2, size: 160, color: Colors.black87),
+          child: Center(
+            child: QrImageView(
+              data: qrData,
+              version: QrVersions.auto,
+              size: 160.0,
+            ),
+          ),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
       ),

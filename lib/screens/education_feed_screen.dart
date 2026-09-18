@@ -130,32 +130,38 @@ class _EducationFeedScreenState extends State<EducationFeedScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.today, color: Color(0xFFFBBF24), size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'TODAY\'S SYLLABUS • DAY $todayIdx',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFBBF24),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
+                              Flexible(
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.today, color: Color(0xFFFBBF24), size: 18),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        'TODAY\'S SYLLABUS • DAY $todayIdx',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFFFBBF24),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Text(
-                                  'Rotates Tomorrow',
-                                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                  'Rotates Daily',
+                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
                                 ),
                               ),
                             ],
@@ -302,12 +308,12 @@ class _EducationFeedScreenState extends State<EducationFeedScreen> {
               const SizedBox(height: 14),
               const Divider(height: 1),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   _badge(Icons.article_outlined, 'Today\'s Guide', const Color(0xFF2E7D32)),
-                  const SizedBox(width: 8),
                   _badge(Icons.video_library_outlined, 'YouTube Video', const Color(0xFFC62828)),
-                  const SizedBox(width: 8),
                   _badge(Icons.emoji_events_outlined, 'Daily Quiz +100', const Color(0xFFD97706)),
                 ],
               ),
