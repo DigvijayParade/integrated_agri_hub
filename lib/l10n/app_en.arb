@@ -1,10 +1,10 @@
 {
   "@@locale": "en",
-  "appTitle": "Integrated Agri Hub",
+  "appTitle": "KrishiVed",
   "@appTitle": {
     "description": "The title of the application"
   },
-  "welcomeTitle": "Welcome to Integrated Agri Hub",
+  "welcomeTitle": "Welcome to KrishiVed",
   "welcomeSubtitle": "Empowering farmers and connecting communities with AI-driven insights.",
   "selectLanguage": "Select Language",
   "getStarted": "Get Started",
@@ -24,7 +24,7 @@
   "inventory": "Inventory",
   "ledger": "Ledger",
   "scan": "Scan & Pay",
-  "appName": "Integrated Agri Hub",
+  "appName": "KrishiVed",
   "appTagline": "Cultivating Growth, Harvesting Knowledge",
   "login": "Login",
   "googleSignIn": "Sign in with Google",

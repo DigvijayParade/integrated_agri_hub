@@ -9,10 +9,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Integrated Agri Hub';
+  String get appTitle => 'KrishiVed';
 
   @override
-  String get welcomeTitle => 'Welcome to Integrated Agri Hub';
+  String get welcomeTitle => 'Welcome to KrishiVed';
 
   @override
   String get welcomeSubtitle =>
@@ -73,7 +73,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scan => 'Scan & Pay';
 
   @override
-  String get appName => 'Integrated Agri Hub';
+  String get appName => 'KrishiVed';
 
   @override
   String get appTagline => 'Cultivating Growth, Harvesting Knowledge';

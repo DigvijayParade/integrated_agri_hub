@@ -103,13 +103,13 @@ abstract class AppLocalizations {
   /// The title of the application
   ///
   /// In en, this message translates to:
-  /// **'Integrated Agri Hub'**
+  /// **'KrishiVed'**
   String get appTitle;
 
   /// No description provided for @welcomeTitle.
   ///
   /// In en, this message translates to:
-  /// **'Welcome to Integrated Agri Hub'**
+  /// **'Welcome to KrishiVed'**
   String get welcomeTitle;
 
   /// No description provided for @welcomeSubtitle.
@@ -229,7 +229,7 @@ abstract class AppLocalizations {
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
-  /// **'Integrated Agri Hub'**
+  /// **'KrishiVed'**
   String get appName;
 
   /// No description provided for @appTagline.

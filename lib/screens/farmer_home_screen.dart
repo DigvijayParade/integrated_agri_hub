@@ -10,6 +10,7 @@ import 'package:integrated_agri_hub/models/app_notification.dart';
 import 'package:integrated_agri_hub/screens/notifications_screen.dart';
 import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
 import 'package:integrated_agri_hub/screens/education_feed_screen.dart';
+import 'package:integrated_agri_hub/screens/tasks_screen.dart';
 import 'package:integrated_agri_hub/services/user_service.dart';
 import 'package:integrated_agri_hub/services/admin_service.dart';
 import 'package:integrated_agri_hub/services/ai_service.dart';
@@ -37,6 +38,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   int _streak = 0;
   int _quizzesCompleted = 0;
   List<String> _completedTasks = [];
+  List<String> _pendingTasks = [];
   List<AppNotification> _notifications = [];
   final List<Map<String, dynamic>> _transactions = [];
 
@@ -78,6 +80,9 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
         }
         if (data['completedTasks'] != null) {
           _completedTasks = List<String>.from(data['completedTasks']);
+        }
+        if (data['pendingTasks'] != null) {
+          _pendingTasks = List<String>.from(data['pendingTasks']);
         }
       });
     });
@@ -170,12 +175,15 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           },
         );
       case 1: return const _MarketView();
-      case 2: return _QuizView(
-          onAddCoins: _addCoins,
+      case 2: return TasksScreen(
+          completedTasks: _completedTasks,
+          pendingTasks: _pendingTasks,
+          farmerId: _userService.currentUid ?? '',
+          farmerName: _farmerName,
+          farmerEmail: _farmerEmail,
+          farmerState: _farmerState,
+          farmerDistrict: _farmerDistrict,
           registeredCrops: _registeredCrops,
-          archivedQuizzes: _archivedQuizzes,
-          onArchive: (q) => setState(() => _archivedQuizzes.add(q)),
-          onDeleteArchive: (q) => setState(() => _archivedQuizzes.remove(q)),
         );
       case 3: return EducationFeedScreen(
           selectedCrops: _registeredCrops,
@@ -218,7 +226,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                   Expanded(child: _buildNavItem(Icons.home_outlined, Icons.home, TranslationService.tr('dashboard'), 0)),
                   Expanded(child: _buildNavItem(Icons.storefront_outlined, Icons.storefront, TranslationService.tr('market_prices'), 1)),
                   const SizedBox(width: 56),
-                  Expanded(child: _buildNavItem(Icons.quiz_outlined, Icons.quiz, TranslationService.tr('quizzes'), 2)),
+                  Expanded(child: _buildNavItem(Icons.assignment_outlined, Icons.assignment, 'Daily Tasks', 2)),
                   Expanded(child: _buildNavItem(Icons.school_outlined, Icons.school, TranslationService.tr('education'), 3)),
                 ],
               ),
@@ -277,495 +285,6 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
     );
   }
 }
-
-// === QUIZ MODULE ===
-
-class _QuizView extends StatefulWidget {
-  final void Function(int, String) onAddCoins;
-  final List<String> registeredCrops;
-  final List<Quiz> archivedQuizzes;
-  final void Function(Quiz) onArchive;
-  final void Function(Quiz) onDeleteArchive;
-
-  const _QuizView({
-    required this.onAddCoins,
-    required this.registeredCrops,
-    required this.archivedQuizzes,
-    required this.onArchive,
-    required this.onDeleteArchive,
-  });
-
-  @override
-  State<_QuizView> createState() => _QuizViewState();
-}
-
-enum QuizState { selection, active, summary }
-
-class _QuizViewState extends State<_QuizView> {
-  QuizState _state = QuizState.selection;
-  Quiz? _activeQuiz;
-  int _currentQuestionIndex = 0;
-  int _score = 0;
-  int? _selectedAnswerIndex;
-  bool _isGenerating = false;
-  String? _generatingCrop;
-
-  void _generateAndStartQuiz(String crop) async {
-    setState(() {
-      _isGenerating = true;
-      _generatingCrop = crop;
-    });
-
-    try {
-      final todayTopic = AiService.getTodayTopic();
-      final quiz = await AiService().generateQuizForCrop(
-        crop,
-        topic: todayTopic['title'],
-        topicIndex: AiService.getTodayTopicIndex(),
-      );
-      if (quiz != null && mounted) {
-        _startQuiz(quiz);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to generate quiz. Check your internet or API key.'), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI Generation Error: ${e.toString()}'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isGenerating = false;
-          _generatingCrop = null;
-        });
-      }
-    }
-  }
-  void _startQuiz(Quiz q) {
-    setState(() {
-      _activeQuiz = q;
-      _state = QuizState.active;
-      _currentQuestionIndex = 0;
-      _score = 0;
-      _selectedAnswerIndex = null;
-    });
-  }
-
-  void _submitAnswer() {
-    if (_selectedAnswerIndex == null) return;
-    
-    final isCorrect = _selectedAnswerIndex == _activeQuiz!.questions[_currentQuestionIndex].correctIndex;
-    if (isCorrect) _score++;
-
-    if (_currentQuestionIndex < _activeQuiz!.questions.length - 1) {
-      setState(() {
-        _currentQuestionIndex++;
-        _selectedAnswerIndex = null;
-      });
-    } else {
-      setState(() {
-        _state = QuizState.summary;
-      });
-    }
-  }
-
-  void _finishQuiz() async {
-    final scorePercentage = _score / _activeQuiz!.questions.length;
-    // Require at least 50% score to earn the reward
-    if (scorePercentage >= 0.5) {
-      final canEarn = await UserService().canEarnQuizRewardToday();
-      if (canEarn && mounted) {
-        await UserService().recordQuizCompletion();
-        widget.onAddCoins(_activeQuiz!.reward, 'Quiz Completed: ${_activeQuiz!.title}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Quiz Passed! +${_activeQuiz!.reward} Coins added.'),
-            backgroundColor: _kGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Quiz Passed! (Daily quiz reward already claimed)'),
-            backgroundColor: _kGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Quiz Failed. Score at least 50% to earn rewards!'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-
-    widget.onArchive(_activeQuiz!);
-    if (mounted) {
-      setState(() {
-        _state = QuizState.selection;
-        _activeQuiz = null;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    switch (_state) {
-      case QuizState.selection: return _buildSelectionDashboard();
-      case QuizState.active: return _buildActiveQuiz();
-      case QuizState.summary: return _buildSummary();
-    }
-  }
-
-  Widget _buildSelectionDashboard() {
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.emoji_events, color: _kGreen, size: 28),
-                SizedBox(width: 12),
-                Text('Knowledge Quizzes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-              ],
-            ),
-          ),
-          Expanded(
-            child: widget.registeredCrops.isEmpty 
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: const BoxDecoration(color: _kLightGreen, shape: BoxShape.circle),
-                        child: const Icon(Icons.psychology_outlined, size: 52, color: _kGreen),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text('Please add crops to your profile to unlock custom daily quizzes.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.black54, height: 1.5)),
-                    ]),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    if (widget.registeredCrops.isNotEmpty) ...[
-                      const Text("Generate AI Challenge", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                      const SizedBox(height: 8),
-                      const Text("Earn 100 coins per day by passing a crop challenge!", style: TextStyle(fontSize: 13, color: Colors.black54)),
-                      const SizedBox(height: 16),
-                      ...widget.registeredCrops.map((crop) => _buildCropGeneratorCard(crop)),
-                      const SizedBox(height: 24),
-                    ],
-                    if (widget.archivedQuizzes.isNotEmpty) ...[
-                      const Text("Previous Quizzes Archive", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                      const SizedBox(height: 16),
-                      ...widget.archivedQuizzes.map((q) => _buildQuizCard(q, isArchive: true)),
-                    ],
-
-                  ],
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCropGeneratorCard(String crop) {
-    final isGen = _isGenerating && _generatingCrop == crop;
-    final todayTopic = AiService.getTodayTopic();
-    final todayIdx = AiService.getTodayTopicIndex() + 1;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _kLightGreen, borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.eco, size: 12, color: _kGreen), const SizedBox(width: 4),
-                    Text(crop, style: const TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                child: const Row(
-                  children: [
-                    Text('🪙', style: TextStyle(fontSize: 12)), SizedBox(width: 4),
-                    Text('+100 Coins', style: TextStyle(fontSize: 11, color: Color(0xFFB8860B), fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text('$crop Daily Challenge', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.menu_book, size: 14, color: Color(0xFF1E3A8A)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Day $todayIdx Topic: ${todayTopic['title']}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A8A), fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Row(
-            children: [
-              Icon(Icons.auto_awesome, size: 14, color: Colors.blue), SizedBox(width: 4),
-              Text('Linked to Today\'s Lesson', style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w600)),
-              SizedBox(width: 14),
-              Icon(Icons.bar_chart, size: 14, color: Colors.black45), SizedBox(width: 4),
-              Text('Medium', style: TextStyle(fontSize: 12, color: Colors.black54)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isGen ? null : () => _generateAndStartQuiz(crop),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _kGreen,
-                disabledBackgroundColor: _kGreen.withValues(alpha: 0.7),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: isGen 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Start Today\'s AI Quiz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuizCard(Quiz q, {required bool isArchive}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _kLightGreen, borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.eco, size: 12, color: _kGreen), const SizedBox(width: 4),
-                    Text(q.targetCrop, style: const TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              if (isArchive)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                  onPressed: () => widget.onDeleteArchive(q),
-                  constraints: const BoxConstraints(), padding: EdgeInsets.zero,
-                )
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(q.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.timer, size: 14, color: Colors.black45), const SizedBox(width: 4),
-              Text(q.estimatedTime, style: const TextStyle(fontSize: 13, color: Colors.black54)),
-              const SizedBox(width: 16),
-              const Icon(Icons.bar_chart, size: 14, color: Colors.black45), const SizedBox(width: 4),
-              Text(q.difficulty, style: const TextStyle(fontSize: 13, color: Colors.black54)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActiveQuiz() {
-    final q = _activeQuiz!.questions[_currentQuestionIndex];
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Question ${_currentQuestionIndex + 1} of ${_activeQuiz!.questions.length}', style: const TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _activeQuiz!.title, 
-                    textAlign: TextAlign.right,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, color: _kGreen, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: (_currentQuestionIndex + 1) / _activeQuiz!.questions.length,
-              backgroundColor: _kLightGreen,
-              color: _kGreen,
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 32),
-            Text(q.text, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-            const SizedBox(height: 32),
-            Expanded(
-              child: ListView.builder(
-                itemCount: q.options.length,
-                itemBuilder: (context, i) {
-                  final isSelected = _selectedAnswerIndex == i;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedAnswerIndex = i),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isSelected ? _kLightGreen : Colors.white,
-                        border: Border.all(color: isSelected ? _kGreen : Colors.grey.shade300, width: 2),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 24, height: 24,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: isSelected ? _kGreen : Colors.grey.shade400, width: 2),
-                              color: isSelected ? _kGreen : Colors.transparent,
-                            ),
-                            child: isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(child: Text(q.options[i], style: TextStyle(fontSize: 16, color: isSelected ? _kDarkGreen : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal))),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            SizedBox(
-              width: double.infinity, height: 56,
-              child: ElevatedButton(
-                onPressed: _selectedAnswerIndex == null ? null : _submitAnswer,
-                style: ElevatedButton.styleFrom(backgroundColor: _kGreen, disabledBackgroundColor: Colors.grey.shade300, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                child: const Text('Next', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummary() {
-    final maxScore = _activeQuiz!.questions.length;
-    final reward = (_score / maxScore) * _activeQuiz!.reward;
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: const BoxDecoration(color: _kLightGreen, shape: BoxShape.circle),
-                child: const Icon(Icons.emoji_events, size: 80, color: Color(0xFFD4AF37)),
-              ),
-              const SizedBox(height: 32),
-              const Text('Quiz Completed!', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-              const SizedBox(height: 16),
-              Text('You scored $_score out of $maxScore', style: const TextStyle(fontSize: 18, color: Colors.black87)),
-              const SizedBox(height: 24),
-              if (reward > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4AF37))),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('\u{1FAA9}', style: TextStyle(fontSize: 24)), const SizedBox(width: 8),
-                      Text('+${reward.toInt()} Green Coins Earned!', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFB8860B))),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 48),
-              SizedBox(
-                width: double.infinity, height: 50,
-                child: ElevatedButton(
-                  onPressed: _finishQuiz,
-                  style: ElevatedButton.styleFrom(backgroundColor: _kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Back to Dashboard', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-
 
 // === TASKS DATA MODEL ===
 class TaskItem {

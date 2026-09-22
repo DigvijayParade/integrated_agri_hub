@@ -333,7 +333,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Text(
-                          'Integrated Agri Hub • Digital India Initiative',
+                          'KrishiVed • Digital India Initiative',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.white.withValues(alpha: 0.55),
@@ -392,8 +392,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   ),
                 ],
               ),
-              child: const Center(
-                child: Icon(Icons.eco_rounded, color: Colors.white, size: 22),
+              child: Center(
+                child: Image.asset('assets/images/app_icon.png', height: 22),
               ),
             ),
           ),
@@ -412,7 +412,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   ),
                 ),
                 const Text(
-                  'Integrated Agri Hub',
+                  'KrishiVed',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
@@ -506,8 +506,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                         ],
                         border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 2),
                       ),
-                      child: const Center(
-                        child: Icon(Icons.agriculture_rounded, color: Colors.white, size: 38),
+                      child: Center(
+                        child: ClipOval(child: Image.asset('assets/images/app_icon.png', height: 42, fit: BoxFit.cover)),
                       ),
                     ),
                   ),

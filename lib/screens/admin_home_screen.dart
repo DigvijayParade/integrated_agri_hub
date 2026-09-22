@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
 import '../services/admin_service.dart';
 import '../services/translation_service.dart';
+import '../services/task_verification_service.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -850,6 +852,11 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
               ),
               const SizedBox(height: 24),
 
+              // Pending Verifications Section
+              _buildPendingVerificationsSection(),
+              
+              const SizedBox(height: 24),
+
               // Live Published Tasks List Header
               const Text(
                 'Active Published Tasks',
@@ -991,6 +998,239 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
       ),
       filled: true,
       fillColor: const Color(0xFFF8FAFC),
+    );
+  }
+
+  Widget _buildPendingVerificationsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Pending Task Verifications',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F2744)),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Starting AI batch verification...'), backgroundColor: Color(0xFF1E3A8A)),
+                );
+                final results = await TaskVerificationService().batchVerifyAllPendingWithAI();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Processed ${results['total']} tasks (Approved: ${results['approved']}, Rejected: ${results['rejected']})'),
+                      backgroundColor: const Color(0xFF059669),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+              label: const Text('AI Auto-Verify All', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A8A),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('task_submissions')
+              .where('status', isEqualTo: 'pending')
+              .orderBy('submittedAt', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: const Center(
+                  child: Text(
+                    'No pending task submissions.',
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                  ),
+                ),
+              );
+            }
+            return Column(
+              children: snapshot.data!.docs.map((doc) {
+                final item = TaskSubmissionItem.fromFirestore(doc);
+                return _buildVerificationCard(item);
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerificationCard(TaskSubmissionItem item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  item.taskTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F2744)),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(8)),
+                child: Text('+${item.coinsReward} Coins', style: const TextStyle(color: Color(0xFFB8860B), fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Farmer: ${item.farmerName} • ${item.farmerDistrict}',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 12),
+          if (item.imageBase64 != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                base64Decode(item.imageBase64!),
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 180,
+                  color: Colors.grey.shade200,
+                  child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _rejectTask(item),
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  label: const Text('Reject', style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _approveTask(item),
+                  icon: const Icon(Icons.check, color: Colors.white),
+                  label: const Text('Approve', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AI is verifying...')));
+                final res = await TaskVerificationService().verifySingleSubmissionWithAI(item);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(res.isApproved ? 'AI Approved: ${res.reasonEnglish}' : 'AI Rejected: ${res.reasonEnglish}'),
+                      backgroundColor: res.isApproved ? const Color(0xFF059669) : Colors.red,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.auto_awesome, color: Color(0xFF1E3A8A)),
+              label: const Text('Verify with AI (Gemini)', style: TextStyle(color: Color(0xFF1E3A8A))),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDBEAFE),
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _approveTask(TaskSubmissionItem item) async {
+    await TaskVerificationService().approveSubmission(
+      submissionId: item.id,
+      farmerId: item.farmerId,
+      taskId: item.taskId,
+      coinsReward: item.coinsReward,
+      taskTitle: item.taskTitle,
+    );
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task Approved!')));
+  }
+
+  void _rejectTask(TaskSubmissionItem item) {
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject Task'),
+        content: TextField(
+          controller: reasonCtrl,
+          decoration: const InputDecoration(hintText: 'Enter rejection reason...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (reasonCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx);
+              await TaskVerificationService().rejectSubmission(
+                submissionId: item.id,
+                farmerId: item.farmerId,
+                taskId: item.taskId,
+                taskTitle: item.taskTitle,
+                reason: reasonCtrl.text.trim(),
+              );
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task Rejected')));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Reject', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }

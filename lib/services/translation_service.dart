@@ -57,11 +57,10 @@ class TranslationService extends ChangeNotifier {
 
   /// Instant Translation Dictionary for All Screens
   static final Map<String, Map<String, String>> _localizedValues = {
-    // --- Welcome & Auth ---
     'app_name': {
-      'en': 'Integrated Agri Hub',
-      'hi': 'एकीकृत कृषि केंद्र (Integrated Agri Hub)',
-      'mr': 'एकात्मिक कृषी केंद्र (Integrated Agri Hub)',
+      'en': 'KrishiVed',
+      'hi': 'कृषिवेद (KrishiVed)',
+      'mr': 'कृषिवेद (KrishiVed)',
     },
     'app_tagline': {
       'en': 'Smart Agriculture, Green Rewards & Empowered Farmers',
@@ -94,9 +93,9 @@ class TranslationService extends ChangeNotifier {
       'mr': 'शासकीय अधिकारी पोर्टल',
     },
     'project_info_title': {
-      'en': 'About Integrated Agri Hub Initiative',
-      'hi': 'एकीकृत कृषि केंद्र परियोजना की जानकारी',
-      'mr': 'एकात्मिक कृषी केंद्र प्रकल्पाची माहिती',
+      'en': 'About KrishiVed Initiative',
+      'hi': 'कृषिवेद परियोजना की जानकारी',
+      'mr': 'कृषिवेद प्रकल्पाची माहिती',
     },
     'project_vision': {
       'en': 'A Unified Digital Public Infrastructure (DPI) empowering Farmers, Agri-Dealers, and Agricultural Officers with AI agronomy, transparent price discovery, and sustainable green rewards.',
@@ -254,9 +253,9 @@ class TranslationService extends ChangeNotifier {
       'mr': 'सुरु करा / नोंदणी करा',
     },
     'about_app_desc': {
-      'en': 'Integrated Agri Hub connects farmers, shopkeepers, and agricultural experts into a unified digital platform. From AI-powered crop disease detection to live market prices and Green Coin rewards, we empower every stakeholder in agriculture.',
-      'hi': 'एकीकृत कृषि केंद्र किसानों, दुकानदारों और कृषि विशेषज्ञों को एक मंच पर जोड़ता है। AI फसल रोग पहचान से लेकर लाइव मंडी भाव और ग्रीन कॉइन्स पुरस्कारों तक, हम कृषि के हर पहलू को समृद्ध बनाते हैं।',
-      'mr': 'एकात्मिक कृषी केंद्र शेतकरी, दुकानदार आणि कृषी तज्ञांना एकाच मंचावर एकत्र आणते. AI पीक रोग निदानापासून थेट बाजार भाव आणि ग्रीन कॉइन्स बक्षिसांपर्यंत, आम्ही शेतीच्या प्रत्येक टप्प्यावर मदत करतो.',
+      'en': 'KrishiVed connects farmers, shopkeepers, and agricultural experts into a unified digital platform. From AI-powered crop disease detection to live market prices and Green Coin rewards, we empower every stakeholder in agriculture.',
+      'hi': 'कृषिवेद किसानों, दुकानदारों और कृषि विशेषज्ञों को एक मंच पर जोड़ता है। AI फसल रोग पहचान से लेकर लाइव मंडी भाव और ग्रीन कॉइन्स पुरस्कारों तक, हम कृषि के हर पहलू को समृद्ध बनाते हैं।',
+      'mr': 'कृषिवेद शेतकरी, दुकानदार आणि कृषी तज्ञांना एकाच मंचावर एकत्र आणते. AI पीक रोग निदानापासून थेट बाजार भाव आणि ग्रीन कॉइन्स बक्षिसांपर्यंत, आम्ही शेतीच्या प्रत्येक टप्प्यावर मदत करतो.',
     },
 
     // --- Dashboard Tabs & Common Navigation ---
@@ -494,6 +493,51 @@ class TranslationService extends ChangeNotifier {
       'en': 'Generate QR Code',
       'hi': 'QR कोड बनाएं',
       'mr': 'QR कोड तयार करा',
+    },
+    'daily_task': {
+      'en': 'Daily Task',
+      'hi': 'दैनिक कार्य',
+      'mr': 'दैनिक कार्य',
+    },
+    'take_photo_proof': {
+      'en': 'Take Photo Proof',
+      'hi': 'फोटो प्रमाण लें',
+      'mr': 'फोटो पुरावा घ्या',
+    },
+    'pending_verification': {
+      'en': 'Pending Verification',
+      'hi': 'सत्यापन लंबित',
+      'mr': 'तपासणी प्रलंबित',
+    },
+    'completed': {
+      'en': 'Completed',
+      'hi': 'पूर्ण हुआ',
+      'mr': 'पूर्ण झाले',
+    },
+    'verified': {
+      'en': 'Verified',
+      'hi': 'सत्यापित',
+      'mr': 'तपासले',
+    },
+    'under_review': {
+      'en': 'Under Review',
+      'hi': 'समीक्षाधीन',
+      'mr': 'पुनरावलोकन चालू आहे',
+    },
+    'available': {
+      'en': 'Available',
+      'hi': 'उपलब्ध',
+      'mr': 'उपलब्ध',
+    },
+    'watch_tutorial': {
+      'en': 'Watch Tutorial',
+      'hi': 'ट्यूटोरियल देखें',
+      'mr': 'ट्युटोरियल पहा',
+    },
+    'task_description': {
+      'en': 'Task Description',
+      'hi': 'कार्य का विवरण',
+      'mr': 'कार्याचे वर्णन',
     },
   };
 
