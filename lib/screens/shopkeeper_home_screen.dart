@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:integrated_agri_hub/screens/qr_scanner_screen.dart';
+import 'dart:convert';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:integrated_agri_hub/services/user_service.dart';
 import 'package:integrated_agri_hub/services/translation_service.dart';
+import 'package:integrated_agri_hub/screens/welcome_screen.dart';
 
 const _kGreen = Color(0xFF4A7C59);
 const _kDarkGreen = Color(0xFF2A5934);
@@ -21,12 +22,8 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
   int _currentIndex = 0;
   String _shopName = 'Loading...';
   String _shopEmail = '';
-  String _shopState = '';
-  String _shopAddress = '';
-  String _shopLicense = '';
-
-  double _todaySales = 0.0;
   int _greenCoinsReceived = 0;
+  double _todaySales = 0.0; // Dummy value or fetched
 
   @override
   void initState() {
@@ -37,7 +34,6 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
   void _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Check shopkeepers collection first, fallback to users
       var doc = await FirebaseFirestore.instance.collection('shopkeepers').doc(user.uid).get();
       if (!doc.exists) {
         doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
@@ -47,38 +43,48 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
         setState(() {
           _shopName = data['fullName'] ?? 'Shopkeeper';
           _shopEmail = data['email'] ?? user.email ?? '';
-          _shopState = data['state'] ?? 'Maharashtra';
-          _shopAddress = data['shopAddress'] ?? '';
-          _shopLicense = data['shopLicense'] ?? '';
           _greenCoinsReceived = (data['greenCoinsReceived'] as num?)?.toInt() ?? 0;
+          _todaySales = (data['todaySales'] as num?)?.toDouble() ?? 0.0;
         });
       }
     }
   }
 
-  final List<Map<String, dynamic>> _ledgerEntries = [];
-
-  void _addLedgerEntry(Map<String, dynamic> entry, double amount) {
-    setState(() {
-      _ledgerEntries.insert(0, entry);
-      _todaySales += amount;
-    });
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log Out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm == true) {
+      UserService().clearCache();
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()), 
+          (route) => false,
+        );
+      }
+    }
   }
 
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
-      case 0: return _HomeView(
-          todaySales: _todaySales,
-          shopName: _shopName,
-          shopEmail: _shopEmail,
-          shopState: _shopState,
-          shopAddress: _shopAddress,
-          shopLicense: _shopLicense,
-          greenCoinsReceived: _greenCoinsReceived,
-        );
-      case 1: return const _InventoryView();
-      case 2: return _LedgerView(entries: _ledgerEntries, onAddEntry: _addLedgerEntry);
-      case 3: return const _ScanSubsidyView();
+      case 0: return _HomeView(shopName: _shopName, greenCoins: _greenCoinsReceived, todaySales: _todaySales, onLogout: _logout);
+      case 1: return const _MarketView();
+      case 2: return const _HistoryView();
+      case 3: return _MyQRView(shopName: _shopName);
       default: return const SizedBox.shrink();
     }
   }
@@ -100,10 +106,10 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(Icons.home_outlined, Icons.home, TranslationService.tr('home'), 0),
-                  _buildNavItem(Icons.inventory_2_outlined, Icons.inventory_2, TranslationService.tr('inventory'), 1),
-                  _buildNavItem(Icons.menu_book_outlined, Icons.menu_book, TranslationService.tr('ledger'), 2),
-                  _buildNavItem(Icons.qr_code_scanner_outlined, Icons.qr_code_scanner, TranslationService.tr('scan'), 3),
+                  _buildNavItem(Icons.home_outlined, Icons.home, 'Home', 0),
+                  _buildNavItem(Icons.storefront_outlined, Icons.storefront, 'Market', 1),
+                  _buildNavItem(Icons.history_outlined, Icons.history, 'History', 2),
+                  _buildNavItem(Icons.qr_code_outlined, Icons.qr_code, 'My QR', 3),
                 ],
               ),
             ),
@@ -126,328 +132,9 @@ class _ShopkeeperHomeScreenState extends State<ShopkeeperHomeScreen> {
           children: [
             Icon(sel ? activeIcon : icon, color: sel ? _kGreen : Colors.grey.shade400, size: 24),
             const SizedBox(height: 4),
-            Text(label,
-                style: TextStyle(
-                    color: sel ? _kGreen : Colors.grey.shade400,
-                    fontWeight: sel ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 11)),
+            Text(label, style: TextStyle(color: sel ? _kGreen : Colors.grey.shade400, fontWeight: sel ? FontWeight.bold : FontWeight.w500, fontSize: 11)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-void _showShopkeeperProfile({
-  required BuildContext context,
-  required String shopName,
-  required String shopEmail,
-  required String shopState,
-  required String shopAddress,
-  required String shopLicense,
-  required int greenCoinsReceived,
-}) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (_) => DraggableScrollableSheet(
-      initialChildSize: 0.88,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (_, sc) => _ShopkeeperProfileModal(
-        scrollController: sc,
-        shopName: shopName,
-        shopEmail: shopEmail,
-        shopState: shopState,
-        shopAddress: shopAddress,
-        shopLicense: shopLicense,
-        greenCoinsReceived: greenCoinsReceived,
-      ),
-    ),
-  );
-}
-
-class _ShopkeeperProfileModal extends StatefulWidget {
-  final ScrollController? scrollController;
-  final String shopName;
-  final String shopEmail;
-  final String shopState;
-  final String shopAddress;
-  final String shopLicense;
-  final int greenCoinsReceived;
-
-  const _ShopkeeperProfileModal({
-    this.scrollController,
-    required this.shopName,
-    required this.shopEmail,
-    required this.shopState,
-    required this.shopAddress,
-    required this.shopLicense,
-    required this.greenCoinsReceived,
-  });
-
-  @override
-  State<_ShopkeeperProfileModal> createState() => _ShopkeeperProfileModalState();
-}
-
-class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
-  bool _isEditing = false;
-  late String _selectedState;
-  final _states = ['Maharashtra', 'Punjab', 'Kerala', 'Other'];
-  late TextEditingController _addressCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedState = widget.shopState;
-    _addressCtrl = TextEditingController(text: widget.shopAddress);
-  }
-
-  @override
-  void dispose() {
-    _addressCtrl.dispose();
-    super.dispose();
-  }
-
-  void _saveProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseFirestore.instance.collection('shopkeepers').doc(user.uid).update({
-        'state': _selectedState,
-        'shopAddress': _addressCtrl.text.trim(),
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Store profile updated successfully!'),
-            backgroundColor: _kGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showQr(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Store QR Code', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-            const SizedBox(height: 24),
-            Container(width: 200, height: 200, color: Colors.black, child: const Icon(Icons.qr_code, color: Colors.white, size: 150)),
-            const SizedBox(height: 24),
-            Text('Scan this to place a direct order with ${widget.shopName}.', textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _card({String? title, required List<Widget> children}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (title != null) ...[
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-          const SizedBox(height: 16),
-        ],
-        ...children,
-      ]),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Row(children: [
-      Icon(icon, size: 20, color: _kGreen), const SizedBox(width: 12),
-      Expanded(flex: 1, child: Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13))),
-      Expanded(flex: 2, child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: _kDarkGreen), textAlign: TextAlign.right)),
-    ]);
-  }
-
-  Widget _dropRow(IconData icon, String label, String value, List<String> items, void Function(String?) onChanged) {
-    return Row(children: [
-      Icon(icon, size: 20, color: _kGreen), const SizedBox(width: 12),
-      Expanded(child: Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13))),
-      DropdownButton<String>(
-        value: value,
-        underline: const SizedBox(),
-        items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, style: const TextStyle(fontWeight: FontWeight.bold, color: _kDarkGreen)))).toList(),
-        onChanged: onChanged,
-      ),
-    ]);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: ListView(
-        controller: widget.scrollController,
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 24),
-        children: [
-          const SizedBox(height: 12),
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 16),
-          
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Shopkeeper Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-              TextButton.icon(
-                onPressed: () {
-                  if (_isEditing) {
-                    _saveProfile();
-                  }
-                  setState(() => _isEditing = !_isEditing);
-                },
-                icon: Icon(_isEditing ? Icons.check_circle : Icons.edit, size: 16, color: _kGreen),
-                label: Text(_isEditing ? 'Save' : 'Edit Profile', style: const TextStyle(color: _kGreen, fontWeight: FontWeight.w600)),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 8),
-
-          _card(children: [
-            Row(children: [
-              const CircleAvatar(radius: 30, backgroundColor: _kLightGreen, child: Icon(Icons.storefront, size: 32, color: _kGreen)),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(widget.shopName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                  IconButton(
-                    icon: const Icon(Icons.qr_code, color: _kGreen, size: 22),
-                    onPressed: () => _showQr(context),
-                    padding: EdgeInsets.zero, constraints: const BoxConstraints(),
-                  ),
-                ]),
-                Text(widget.shopEmail, style: const TextStyle(fontSize: 13, color: Colors.black54)),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20), border: Border.all(color: _kGreen.withValues(alpha: 0.4))),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.verified_user, size: 12, color: _kGreen), SizedBox(width: 4),
-                    Text('License Verified', style: TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-              ])),
-            ]),
-          ]),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF0D47A1)]), borderRadius: BorderRadius.circular(12)),
-              child: const Row(children: [
-                Icon(Icons.account_balance, color: Colors.white, size: 22), SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Bank Account Linked', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text('Settlements are processed directly to your linked bank.', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                ])),
-                Icon(Icons.check_circle, color: Colors.greenAccent, size: 20),
-              ]),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          _card(title: 'Store Details', children: [
-            _isEditing
-              ? _dropRow(Icons.map_outlined, 'State', _selectedState, _states, (v) => setState(() => _selectedState = v!))
-              : _infoRow(Icons.map_outlined, 'State', _selectedState),
-            const Divider(height: 20),
-            _isEditing
-              ? Row(children: [
-                  const Icon(Icons.location_on_outlined, size: 20, color: _kGreen), const SizedBox(width: 12),
-                  const Expanded(flex: 1, child: Text('Address', style: TextStyle(color: Colors.black54, fontSize: 13))),
-                  Expanded(flex: 2, child: TextField(controller: _addressCtrl, style: const TextStyle(fontWeight: FontWeight.bold, color: _kDarkGreen, fontSize: 13), textAlign: TextAlign.right, decoration: const InputDecoration(isDense: true))),
-                ])
-              : _infoRow(Icons.location_on_outlined, 'Address', _addressCtrl.text.isEmpty ? 'Not Provided' : _addressCtrl.text),
-            const Divider(height: 20),
-            _infoRow(Icons.assignment_outlined, 'License Number', widget.shopLicense.isEmpty ? 'Not Provided' : widget.shopLicense),
-            const Divider(height: 20),
-            _infoRow(Icons.people_outline, 'Connected Farmers', '142 Active'),
-          ]),
-
-          // 🌿 Green Coin Wallet Card
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF4A7C59)]),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 52, height: 52,
-                  decoration: BoxDecoration(color: Colors.white.withAlpha(40), shape: BoxShape.circle),
-                  child: const Icon(Icons.eco, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Green Coin Wallet', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 4),
-                    Text('${widget.greenCoinsReceived} Coins', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 2),
-                    const Text('Coins received from farmer redemptions', style: TextStyle(color: Colors.white60, fontSize: 11)),
-                  ]),
-                ),
-              ],
-            ),
-          ),
-
-          _card(children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
-              onTap: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Log Out'),
-                    content: const Text('Are you sure you want to log out of Integrated Agri Hub?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Log Out'),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  UserService().clearCache();
-                  await FirebaseAuth.instance.signOut();
-                  if (context.mounted) {
-                    Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
-                  }
-                }
-              },
-            ),
-          ]),
-        ],
       ),
     );
   }
@@ -455,23 +142,12 @@ class _ShopkeeperProfileModalState extends State<_ShopkeeperProfileModal> {
 
 // === HOME VIEW ===
 class _HomeView extends StatelessWidget {
-  final double todaySales;
   final String shopName;
-  final String shopEmail;
-  final String shopState;
-  final String shopAddress;
-  final String shopLicense;
-  final int greenCoinsReceived;
+  final int greenCoins;
+  final double todaySales;
+  final VoidCallback onLogout;
 
-  const _HomeView({
-    required this.todaySales,
-    required this.shopName,
-    required this.shopEmail,
-    required this.shopState,
-    required this.shopAddress,
-    required this.shopLicense,
-    required this.greenCoinsReceived,
-  });
+  const _HomeView({required this.shopName, required this.greenCoins, required this.todaySales, required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
@@ -484,40 +160,17 @@ class _HomeView extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                GestureDetector(
-                  onTap: () => _showShopkeeperProfile(
-                    context: context,
-                    shopName: shopName,
-                    shopEmail: shopEmail,
-                    shopState: shopState,
-                    shopAddress: shopAddress,
-                    shopLicense: shopLicense,
-                    greenCoinsReceived: greenCoinsReceived,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Welcome back,', style: TextStyle(fontSize: 14, color: Colors.black54)),
-                      const SizedBox(height: 2),
-                      Text('$shopName \u{1F4C8}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                    ],
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Welcome back,', style: TextStyle(fontSize: 14, color: Colors.black54)),
+                    const SizedBox(height: 2),
+                    Text('$shopName \u{1F4C8}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+                  ],
                 ),
-                GestureDetector(
-                  onTap: () => _showShopkeeperProfile(
-                    context: context,
-                    shopName: shopName,
-                    shopEmail: shopEmail,
-                    shopState: shopState,
-                    shopAddress: shopAddress,
-                    shopLicense: shopLicense,
-                    greenCoinsReceived: greenCoinsReceived,
-                  ),
-                  child: const CircleAvatar(
-                    backgroundColor: _kLightGreen,
-                    radius: 24,
-                    child: Icon(Icons.storefront, color: _kGreen),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.redAccent),
+                  onPressed: onLogout,
                 )
               ],
             ),
@@ -526,47 +179,11 @@ class _HomeView extends StatelessWidget {
             // Metrics
             Row(
               children: [
-                Expanded(child: _metricCard('Today\'s Sales', '\u20b9 ${todaySales.toStringAsFixed(0)}', Icons.trending_up, Colors.orange)),
+                Expanded(child: _metricCard('Today\'s Sales', '₹ ${todaySales.toStringAsFixed(0)}', Icons.trending_up, Colors.orange)),
                 const SizedBox(width: 12),
-                Expanded(child: _metricCard('Green Coins', '$greenCoinsReceived 🌿', Icons.eco, _kGreen)),
+                Expanded(child: _metricCard('Total Green Coins', '$greenCoins 🌿', Icons.eco, _kGreen)),
               ],
             ),
-            const SizedBox(height: 32),
-
-            // Demand Insights
-            const Text('Local Demand Insights', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.lightbulb_outline, color: Colors.orange, size: 32),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('High Demand Alert!', style: TextStyle(fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                        SizedBox(height: 4),
-                        Text('70% of farmers in your 10km radius have planted Cotton. Stock up on Fall Armyworm pesticides.', style: TextStyle(color: Colors.black87, fontSize: 13)),
-                      ],
-                    ),
-                  )
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Active Subsidies
-            const Text('Active Govt Subsidies', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-            const SizedBox(height: 16),
-            _subsidyCard('Neem Coated Urea', '50% Govt Subsidy (DBT) applicable for small farmers.', Icons.agriculture),
-            _subsidyCard('Drip Irrigation Pipes', '80% State Subsidy. Verify Farmer ID to process.', Icons.water_drop),
           ],
         ),
       ),
@@ -578,418 +195,188 @@ class _HomeView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color),
           const SizedBox(height: 12),
-          Text(title, style: const TextStyle(color: Colors.black54, fontSize: 13)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _kDarkGreen)),
+          Text(title, style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: _kDarkGreen)),
         ],
       ),
     );
   }
+}
 
-  Widget _subsidyCard(String title, String desc, IconData icon) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _kLightGreen, borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
+// === MARKET VIEW ===
+class _MarketView extends StatefulWidget {
+  const _MarketView();
+  @override
+  State<_MarketView> createState() => _MarketViewState();
+}
+
+class _MarketViewState extends State<_MarketView> {
+  // Dummy CSV data for agricultural products
+  final List<Map<String, dynamic>> _products = [
+    {'name': 'Neem Coated Urea (45kg)', 'price': 266, 'discountPercent': 10},
+    {'name': 'DAP Fertilizer (50kg)', 'price': 1350, 'discountPercent': 15},
+    {'name': 'Trichoderma Viride (1kg)', 'price': 120, 'discountPercent': 20},
+    {'name': 'Cotton Seeds (Bt)', 'price': 850, 'discountPercent': 5},
+    {'name': 'Drip Irrigation Pipe (Bundle)', 'price': 2500, 'discountPercent': 60},
+  ];
+
+  void _updateDiscount(int index, double val) {
+    setState(() {
+      _products[index]['discountPercent'] = val.toInt();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(backgroundColor: Colors.white, child: Icon(icon, color: _kGreen)),
-          const SizedBox(width: 16),
+          const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text('Market & Discounts', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.0),
+            child: Text('Set the max Green Coin discount (up to 60%) for each CSV product.', style: TextStyle(color: Colors.black54, fontSize: 13)),
+          ),
+          const SizedBox(height: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: _kDarkGreen)),
-                const SizedBox(height: 4),
-                Text(desc, style: const TextStyle(fontSize: 12, color: Colors.black87)),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-}
-
-// === INVENTORY VIEW ===
-class _InventoryView extends StatefulWidget {
-  const _InventoryView();
-  @override
-  State<_InventoryView> createState() => _InventoryViewState();
-}
-
-class _InventoryViewState extends State<_InventoryView> {
-  final List<Map<String, dynamic>> _inventory = [];
-
-  void _showAddEditProductDialog({Map<String, dynamic>? product, int? index}) {
-    final nameController = TextEditingController(text: product?['name'] ?? '');
-    final priceController = TextEditingController(text: product?['price'] ?? '');
-    final stockController = TextEditingController(text: product != null ? product['stock'].toString() : '');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(product == null ? 'Add Product' : 'Edit Product', style: const TextStyle(color: _kDarkGreen, fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Product Name')),
-              TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price (\u20b9)'), keyboardType: TextInputType.number),
-              TextField(controller: stockController, decoration: const InputDecoration(labelText: 'Initial Stock Quantity'), keyboardType: TextInputType.number),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final newProduct = {
-                'name': nameController.text,
-                'price': priceController.text,
-                'stock': int.tryParse(stockController.text) ?? 0,
-                'lowStock': (int.tryParse(stockController.text) ?? 0) < 10,
-              };
-
-              setState(() {
-                if (index != null) {
-                  _inventory[index] = newProduct;
-                } else {
-                  _inventory.insert(0, newProduct);
-                }
-              });
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: _kGreen),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
-          )
-        ],
-      )
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Text('Inventory Management', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                itemCount: _inventory.length,
-                itemBuilder: (context, index) {
-                  final item = _inventory[index];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white, borderRadius: BorderRadius.circular(12),
-                      border: item['lowStock'] ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5)) : null,
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 50, height: 50,
-                          decoration: BoxDecoration(color: _kLightGreen, borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.inventory_2, color: _kGreen),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _kDarkGreen)),
-                              const SizedBox(height: 4),
-                              Text('\u20b9 ${item['price']} / unit', style: const TextStyle(color: Colors.black54)),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(Icons.inventory, size: 14, color: item['lowStock'] ? Colors.redAccent : Colors.grey),
-                                  const SizedBox(width: 4),
-                                  Text('Stock: ${item['stock']}', style: TextStyle(color: item['lowStock'] ? Colors.redAccent : Colors.grey, fontWeight: FontWeight.bold)),
-                                ],
-                              )
-                            ],
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              itemCount: _products.length,
+              itemBuilder: (context, index) {
+                final prod = _products[index];
+                final discount = prod['discountPercent'] as int;
+                final discountAmt = (prod['price'] * discount / 100).toStringAsFixed(0);
+                
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white, borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: Text(prod['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _kDarkGreen))),
+                          Text('₹ ${prod['price']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Accept up to $discount% in Green Coins (Save ₹ $discountAmt)', style: const TextStyle(color: _kGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Text('0%'),
+                          Expanded(
+                            child: Slider(
+                              value: discount.toDouble(),
+                              min: 0,
+                              max: 60, // Maximum 60% as requested
+                              divisions: 60,
+                              activeColor: _kGreen,
+                              label: '$discount%',
+                              onChanged: (val) => _updateDiscount(index, val),
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: _kGreen),
-                          onPressed: () => _showAddEditProductDialog(product: item, index: index),
-                        )
-                      ],
-                    ),
-                  );
-                },
-              ),
-            )
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddEditProductDialog,
-        backgroundColor: _kGreen,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Product', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-}
-
-// === LEDGER VIEW ===
-class _LedgerView extends StatefulWidget {
-  final List<Map<String, dynamic>> entries;
-  final void Function(Map<String, dynamic>, double) onAddEntry;
-  const _LedgerView({required this.entries, required this.onAddEntry});
-
-  @override
-  State<_LedgerView> createState() => _LedgerViewState();
-}
-
-class _LedgerViewState extends State<_LedgerView> {
-  void _showAddEntryDialog() {
-    final farmerController = TextEditingController();
-    final itemsController = TextEditingController();
-    final discountController = TextEditingController();
-    final totalController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Ledger Entry', style: TextStyle(color: _kDarkGreen, fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: farmerController, decoration: const InputDecoration(labelText: 'Farmer Name')),
-              TextField(controller: itemsController, decoration: const InputDecoration(labelText: 'Items Bought (e.g. 2x Urea)')),
-              TextField(controller: discountController, decoration: const InputDecoration(labelText: 'Discount Applied (e.g. \u20b9 50)')),
-              TextField(controller: totalController, decoration: const InputDecoration(labelText: 'Total Amount (\u20b9)'), keyboardType: TextInputType.number),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final amt = double.tryParse(totalController.text) ?? 0.0;
-              widget.onAddEntry({
-                'date': 'Today',
-                'farmer': farmerController.text.isEmpty ? 'Unknown Farmer' : farmerController.text,
-                'items': itemsController.text.isEmpty ? 'General Items' : itemsController.text,
-                'discount': discountController.text.isEmpty ? 'None' : discountController.text,
-                'total': '\u20b9 ${totalController.text.isEmpty ? '0' : totalController.text}',
-                'amount': amt,
-              }, amt);
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: _kGreen),
-            child: const Text('Save Entry', style: TextStyle(color: Colors.white)),
+                          const Text('60%'),
+                        ],
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
           )
         ],
-      )
+      ),
     );
   }
+}
+
+// === HISTORY VIEW ===
+class _HistoryView extends StatelessWidget {
+  const _HistoryView();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Text('Digital Ledger', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                itemCount: widget.entries.length,
-                itemBuilder: (context, index) {
-                  final entry = widget.entries[index];
+    // PhonePe style history
+    final dummyTransactions = [
+      {'name': 'Ramesh Patil', 'time': 'Today, 2:30 PM', 'coins': 150, 'rs': 15},
+      {'name': 'Suresh Kumar', 'time': 'Today, 11:15 AM', 'coins': 300, 'rs': 30},
+      {'name': 'Dinesh Singh', 'time': 'Yesterday, 5:45 PM', 'coins': 50, 'rs': 5},
+      {'name': 'Anil Sharma', 'time': 'Yesterday, 1:20 PM', 'coins': 420, 'rs': 42},
+      {'name': 'Prakash Rao', 'time': '21 Sep 2026, 9:00 AM', 'coins': 120, 'rs': 12},
+    ];
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white, borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(entry['date'], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: _kLightGreen, borderRadius: BorderRadius.circular(12)),
-                              child: const Text('Completed', style: TextStyle(color: _kGreen, fontSize: 12, fontWeight: FontWeight.bold)),
-                            )
-                          ],
-                        ),
-                        const Divider(height: 24),
-                        Row(
-                          children: [
-                            const CircleAvatar(radius: 16, backgroundColor: _kCream, child: Icon(Icons.person, size: 16, color: _kGreen)),
-                            const SizedBox(width: 12),
-                            Text(entry['farmer'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _kDarkGreen)),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text('Items: ${entry['items']}', style: const TextStyle(color: Colors.black87)),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Discount: ${entry['discount']}', style: const TextStyle(color: Colors.orange, fontSize: 13)),
-                            Text('Total: ${entry['total']}', style: const TextStyle(fontWeight: FontWeight.bold, color: _kDarkGreen, fontSize: 16)),
-                          ],
-                        )
-                      ],
-                    ),
-                  );
-                },
-              ),
-            )
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddEntryDialog,
-        backgroundColor: _kGreen,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-}
-
-// === SCAN & SUBSIDY VIEW ===
-class _ScanSubsidyView extends StatefulWidget {
-  const _ScanSubsidyView();
-  @override
-  State<_ScanSubsidyView> createState() => _ScanSubsidyViewState();
-}
-
-class _ScanSubsidyViewState extends State<_ScanSubsidyView> {
-  bool _isProcessing = false;
-
-  Future<void> _handleScanResult(String result) async {
-    try {
-      final data = jsonDecode(result);
-      if (data['uid'] == null || data['name'] == null) {
-        throw Exception("Invalid QR Format");
-      }
-      final farmerUid = data['uid'];
-      final farmerName = data['name'];
-
-      // Show dialog to enter amount
-      final amountCtrl = TextEditingController();
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text('Redeem Coins from $farmerName'),
-          content: TextField(
-            controller: amountCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Green Coins to Deduct (10 coins = ₹1)'),
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text('Transaction History', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: _kGreen),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Redeem', style: TextStyle(color: Colors.white)),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: dummyTransactions.length,
+              itemBuilder: (context, index) {
+                final tx = dummyTransactions[index];
+                return Column(
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: _kLightGreen,
+                        child: Text(tx['name'].toString().substring(0, 1), style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold)),
+                      ),
+                      title: Text(tx['name'].toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      subtitle: Text(tx['time'].toString(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('+${tx['coins']} 🌿', style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text('Value: ₹ ${tx['rs']}', style: const TextStyle(color: Colors.black54, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 16),
+                  ],
+                );
+              },
             ),
-          ],
-        )
-      );
-
-      if (confirm == true && amountCtrl.text.isNotEmpty) {
-        final amount = int.tryParse(amountCtrl.text) ?? 0;
-        if (amount <= 0) return;
-
-        setState(() => _isProcessing = true);
-
-        // Fetch farmer balance
-        final farmerDoc = await FirebaseFirestore.instance.collection('farmers').doc(farmerUid).get();
-        if (!farmerDoc.exists) throw Exception("Farmer not found");
-        final currentBalance = farmerDoc.data()?['greenCoins'] ?? 0;
-
-        if (amount > currentBalance) {
-          throw Exception("Insufficient Balance. Farmer has only $currentBalance coins.");
-        }
-
-        // Process Transaction (Batched)
-        final shopUid = FirebaseAuth.instance.currentUser!.uid;
-        final batch = FirebaseFirestore.instance.batch();
-
-        // 1. Deduct from farmer
-        batch.update(farmerDoc.reference, {
-          'greenCoins': FieldValue.increment(-amount),
-        });
-
-        // 2. Add to shopkeeper
-        final shopRef = FirebaseFirestore.instance.collection('shopkeepers').doc(shopUid);
-        batch.update(shopRef, {
-          'greenCoinsReceived': FieldValue.increment(amount),
-        });
-
-        // 3. Log in farmer's ledger
-        final fTx = farmerDoc.reference.collection('transactions').doc();
-        batch.set(fTx, {
-          'name': 'Redeemed at Store',
-          'amount': '-$amount',
-          'credit': false,
-          'dt': DateTime.now().toString(),
-          'timestamp': FieldValue.serverTimestamp(),
-          'id': fTx.id,
-        });
-
-        await batch.commit();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Successfully redeemed $amount coins!'), backgroundColor: _kGreen));
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Scan Error', style: TextStyle(color: Colors.red)),
-            content: Text(e.toString()),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
           )
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+        ],
+      ),
+    );
   }
+}
+
+// === MY QR VIEW ===
+class _MyQRView extends StatelessWidget {
+  final String shopName;
+  const _MyQRView({required this.shopName});
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown_shop_id';
+    final qrData = jsonEncode({'shopUid': uid, 'shopName': shopName});
+
     return SafeArea(
       child: Center(
         child: Padding(
@@ -997,35 +384,34 @@ class _ScanSubsidyViewState extends State<_ScanSubsidyView> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: const BoxDecoration(color: _kLightGreen, shape: BoxShape.circle),
-                child: _isProcessing 
-                    ? const CircularProgressIndicator(color: _kGreen)
-                    : const Icon(Icons.qr_code_scanner, size: 80, color: _kGreen),
-              ),
-              const SizedBox(height: 32),
-              const Text('Verify & Apply Subsidy', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+              const Text('Store QR Code', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _kDarkGreen)),
               const SizedBox(height: 16),
-              const Text('Scan a farmer\'s digital ID to verify authenticity and deduct Green Coins for store discounts.',
+              const Text('Farmers will scan this QR Code from their app to instantly transfer Green Coins to your wallet.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black54, fontSize: 16, height: 1.5),
               ),
               const SizedBox(height: 48),
-              SizedBox(
-                width: double.infinity, height: 56,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.camera_alt, color: Colors.white),
-                  label: const Text('Open Scanner', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(backgroundColor: _kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                  onPressed: _isProcessing ? null : () async {
-                    final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScannerScreen()));
-                    if (result != null && context.mounted) {
-                      await _handleScanResult(result);
-                    }
-                  },
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white, 
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [BoxShadow(color: _kGreen.withOpacity(0.2), blurRadius: 30, spreadRadius: 5)],
+                  border: Border.all(color: _kLightGreen, width: 4),
                 ),
-              )
+                child: QrImageView(
+                  data: qrData,
+                  version: QrVersions.auto,
+                  size: 240,
+                  backgroundColor: Colors.white,
+                  eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: _kDarkGreen),
+                  dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: _kGreen),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(shopName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _kDarkGreen)),
+              const SizedBox(height: 8),
+              const Text('Show this to accept Green Coins', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -1033,4 +419,3 @@ class _ScanSubsidyViewState extends State<_ScanSubsidyView> {
     );
   }
 }
-

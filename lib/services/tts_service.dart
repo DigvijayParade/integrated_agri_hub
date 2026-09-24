@@ -15,7 +15,7 @@ class TtsService extends ChangeNotifier {
 
   void _initTts() {
     _flutterTts.setLanguage(_currentLanguage);
-    _flutterTts.setSpeechRate(0.38); // Standard rate from original project
+    _flutterTts.setSpeechRate(0.3); // Slower rate so it's easier to understand
     _flutterTts.setVolume(1.0);
     _flutterTts.setPitch(1.0);
 
