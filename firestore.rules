@@ -24,17 +24,18 @@ service cloud.firestore {
 
     match /farmers/{farmerId} {
       allow read: if isAuth();
-      // Farmer can update their own profile.
-      // Shopkeeper can update farmer's greenCoins for redemption.
       allow update: if request.auth.uid == farmerId || isShopkeeper() || isAdmin();
       allow create, delete: if request.auth.uid == farmerId || isAdmin();
       
-      // Farmer's transactions
       match /transactions/{txId} {
         allow read: if request.auth.uid == farmerId || isAdmin();
-        // Shopkeeper can create a transaction when redeeming
         allow create: if request.auth.uid == farmerId || isShopkeeper() || isAdmin();
         allow update, delete: if isAdmin();
+      }
+
+      match /notifications/{notifId} {
+        allow read: if request.auth.uid == farmerId || isAdmin();
+        allow create, write: if isAdmin();
       }
     }
 
@@ -56,6 +57,35 @@ service cloud.firestore {
     match /quizzes/{quizId} {
       allow read: if isAuth();
       allow write: if isAdmin();
+    }
+
+    // Admin uploads CSV → writes mandi prices
+    // Farmers and Shopkeepers can read
+    match /market_prices/{priceId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // Shopkeeper sets discounts per product
+    match /shopkeeper_inventory/{invId} {
+      allow read: if isAuth();
+      allow create, update: if isShopkeeper() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Farmers submit task proof, Admin approves/rejects
+    match /task_submissions/{submissionId} {
+      allow read: if isAuth();
+      allow create: if isAuth(); // farmer submits
+      allow update: if isAdmin(); // admin approves/rejects
+      allow delete: if isAdmin();
+    }
+
+    // Green Coin purchase transactions (Farmer → Shopkeeper)
+    match /green_coin_transactions/{txId} {
+      allow read: if isAuth();
+      allow create: if isAuth(); // created during purchase
+      allow update, delete: if isAdmin();
     }
 
     // Default deny

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import '../services/admin_service.dart';
 import '../services/translation_service.dart';
 import '../services/task_verification_service.dart';
+import '../screens/welcome_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -18,9 +21,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   late TabController _tabController;
   final AdminService _adminService = AdminService();
 
-  // Market Price Controllers & State
+  // Market Price State
   String _marketSearchQuery = '';
-  final TextEditingController _csvInputController = TextEditingController();
+  bool _isImportingCsv = false;
 
   // Animation Controllers
   late AnimationController _fadeCtrl;
@@ -62,7 +65,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   void dispose() {
     _adminService.removeListener(_onAdminServiceChange);
     _tabController.dispose();
-    _csvInputController.dispose();
+    // no csv controller to dispose
     _fadeCtrl.dispose();
     _pulseCtrl.dispose();
     super.dispose();
@@ -131,14 +134,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 children: [
                   Row(
                     children: [
-                      Text(
-                        TranslationService.tr('admin'),
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
+                      Expanded(
+                        child: Text(
+                          TranslationService.tr('admin'),
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(width: 6),
                       Container(
@@ -300,13 +305,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        icon: const Icon(Icons.file_upload_outlined, size: 18),
-                        label: const Text(
-                          'Import CSV Data',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        icon: _isImportingCsv
+                            ? const SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.file_upload_outlined, size: 18),
+                        label: Text(
+                          _isImportingCsv ? 'Importing...' : 'Import CSV Data',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        onPressed: _showCsvUploadDialog,
+                        onPressed: _isImportingCsv ? null : _pickAndImportCsvFile,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -324,22 +336,24 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                         'Load Sample',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         const sampleCsv = '''Crop,Mandi,District,Price
 Cotton (Kapas),Nagpur APMC,Nagpur,7650
 Soybean,Latur APMC,Latur,4950
 Sugarcane,Kolhapur Mandi,Kolhapur,3200
 Turmeric,Sangli APMC,Sangli,14100
 Onion,Lasalgaon Mandi,Nashik,2250''';
-                        final count = _adminService.importMarketPricesFromCsv(sampleCsv);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Successfully imported $count sample mandi rates!'),
-                            backgroundColor: const Color(0xFF059669),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        );
+                        final count = await _adminService.importMarketPricesFromCsv(sampleCsv);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Loaded $count sample mandi rates into Firebase!'),
+                              backgroundColor: const Color(0xFF059669),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
                       },
                     ),
                   ],
@@ -547,74 +561,93 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
     );
   }
 
-  void _showCsvUploadDialog() {
-    _csvInputController.clear();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.file_present_rounded, color: Color(0xFF1E3A8A)),
-              SizedBox(width: 8),
-              Expanded(child: Text('Import Market Rates CSV', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold))),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Paste CSV data lines in format:\nCropName, MandiName, District, PricePerQuintal',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _csvInputController,
-                maxLines: 6,
-                decoration: InputDecoration(
-                  hintText: 'Cotton (Kapas),Nagpur APMC,Nagpur,7500\nSoybean,Latur APMC,Latur,4900\nOnion,Lasalgaon,Nashik,2300',
-                  hintStyle: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+  Future<void> _pickAndImportCsvFile() async {
+    try {
+      // Open file picker restricted to CSV files only
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) return; // User cancelled
+
+      final pickedFile = result.files.first;
+      final filePath = pickedFile.path;
+
+      if (filePath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not read file path. Please try again.'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Show loading indicator
+      if (mounted) setState(() => _isImportingCsv = true);
+
+      // Read file content
+      final file = File(filePath);
+      final csvText = await file.readAsString();
+
+      if (csvText.trim().isEmpty) {
+        if (mounted) {
+          setState(() => _isImportingCsv = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('The selected CSV file is empty.'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Parse and upload to Firebase
+      final count = await _adminService.importMarketPricesFromCsv(csvText);
+
+      if (mounted) {
+        setState(() => _isImportingCsv = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '✅ Imported $count mandi price records from ${pickedFile.name}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A8A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () {
-                final text = _csvInputController.text.trim();
-                if (text.isNotEmpty) {
-                  final count = _adminService.importMarketPricesFromCsv(text);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Imported $count mandi price records successfully!'),
-                      backgroundColor: const Color(0xFF059669),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Import Data', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
         );
-      },
-    );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isImportingCsv = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error reading CSV file: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildStatCard({
@@ -684,15 +717,17 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
   }
 
   void _showSignOutDialog() {
+    // Capture State's own context BEFORE opening dialog
+    final stateContext = context;
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: stateContext,
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Sign Out Admin Session?'),
         content: const Text('Are you sure you want to exit the Government Admin Portal?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -702,10 +737,13 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext); // close dialog
               await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+              if (mounted) {
+                Navigator.of(stateContext, rootNavigator: true).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (route) => false,
+                );
               }
             },
             child: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -1006,12 +1044,16 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              'Pending Task Verifications',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F2744)),
+            const Expanded(
+              child: Text(
+                'Pending Task Verifications',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F2744)),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: () async {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1027,12 +1069,13 @@ Onion,Lasalgaon Mandi,Nashik,2250''';
                   );
                 }
               },
-              icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
-              label: const Text('AI Auto-Verify All', style: TextStyle(color: Colors.white)),
+              icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+              label: const Text('AI Verify All', style: TextStyle(color: Colors.white, fontSize: 12)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E3A8A),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
           ],

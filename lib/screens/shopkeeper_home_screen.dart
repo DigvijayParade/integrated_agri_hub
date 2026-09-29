@@ -219,23 +219,78 @@ class _MarketView extends StatefulWidget {
 }
 
 class _MarketViewState extends State<_MarketView> {
-  // Dummy CSV data for agricultural products
-  final List<Map<String, dynamic>> _products = [
-    {'name': 'Neem Coated Urea (45kg)', 'price': 266, 'discountPercent': 10},
-    {'name': 'DAP Fertilizer (50kg)', 'price': 1350, 'discountPercent': 15},
-    {'name': 'Trichoderma Viride (1kg)', 'price': 120, 'discountPercent': 20},
-    {'name': 'Cotton Seeds (Bt)', 'price': 850, 'discountPercent': 5},
-    {'name': 'Drip Irrigation Pipe (Bundle)', 'price': 2500, 'discountPercent': 60},
-  ];
+  List<Map<String, dynamic>> _products = [];
+  Map<String, int> _discounts = {};
+  bool _isLoading = true;
 
-  void _updateDiscount(int index, double val) {
+  @override
+  void initState() {
+    super.initState();
+    _loadMarketAndInventory();
+  }
+
+  void _loadMarketAndInventory() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final marketSnap = await FirebaseFirestore.instance.collection('market_prices').get();
+    final invSnap = await FirebaseFirestore.instance.collection('shopkeeper_inventory').where('shopkeeper_id', isEqualTo: uid).get();
+    
+    final Map<String, int> discountsMap = {};
+    for (var doc in invSnap.docs) {
+      final data = doc.data();
+      discountsMap[data['product_id'] as String] = (data['discountPercent'] as num).toInt();
+    }
+
+    final List<Map<String, dynamic>> loadedProds = [];
+    for (var doc in marketSnap.docs) {
+      final data = doc.data();
+      loadedProds.add({
+        'id': doc.id,
+        'name': data['cropName'] ?? '',
+        'price': data['currentPrice'] ?? 0.0,
+      });
+      if (!discountsMap.containsKey(doc.id)) {
+        discountsMap[doc.id] = 0;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _products = loadedProds;
+        _discounts = discountsMap;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _updateDiscount(String prodId, double val) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    
+    final int newDiscount = val.toInt();
     setState(() {
-      _products[index]['discountPercent'] = val.toInt();
+      _discounts[prodId] = newDiscount;
     });
+
+    final invRef = FirebaseFirestore.instance.collection('shopkeeper_inventory');
+    final qSnap = await invRef.where('shopkeeper_id', isEqualTo: uid).where('product_id', isEqualTo: prodId).get();
+    
+    if (qSnap.docs.isNotEmpty) {
+      await invRef.doc(qSnap.docs.first.id).update({'discountPercent': newDiscount});
+    } else {
+      await invRef.add({
+        'shopkeeper_id': uid,
+        'product_id': prodId,
+        'discountPercent': newDiscount,
+        'stock_quantity': 100, // default
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,8 +310,10 @@ class _MarketViewState extends State<_MarketView> {
               itemCount: _products.length,
               itemBuilder: (context, index) {
                 final prod = _products[index];
-                final discount = prod['discountPercent'] as int;
-                final discountAmt = (prod['price'] * discount / 100).toStringAsFixed(0);
+                final prodId = prod['id'] as String;
+                final discount = _discounts[prodId] ?? 0;
+                final price = prod['price'] as num;
+                final discountAmt = (price * discount / 100).toStringAsFixed(0);
                 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -272,7 +329,7 @@ class _MarketViewState extends State<_MarketView> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(child: Text(prod['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _kDarkGreen))),
-                          Text('₹ ${prod['price']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
+                          Text('₹ $price', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -285,11 +342,11 @@ class _MarketViewState extends State<_MarketView> {
                             child: Slider(
                               value: discount.toDouble(),
                               min: 0,
-                              max: 60, // Maximum 60% as requested
+                              max: 60,
                               divisions: 60,
                               activeColor: _kGreen,
                               label: '$discount%',
-                              onChanged: (val) => _updateDiscount(index, val),
+                              onChanged: (val) => _updateDiscount(prodId, val),
                             ),
                           ),
                           const Text('60%'),
@@ -308,20 +365,44 @@ class _MarketViewState extends State<_MarketView> {
 }
 
 // === HISTORY VIEW ===
-class _HistoryView extends StatelessWidget {
+class _HistoryView extends StatefulWidget {
   const _HistoryView();
+  @override
+  State<_HistoryView> createState() => _HistoryViewState();
+}
+
+class _HistoryViewState extends State<_HistoryView> {
+  List<Map<String, dynamic>> _transactions = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  void _loadHistory() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    
+    FirebaseFirestore.instance
+      .collection('green_coin_transactions')
+      .where('receiver_id', isEqualTo: uid)
+      .orderBy('timestamp', descending: true)
+      .snapshots()
+      .listen((snap) {
+        if (!mounted) return;
+        final list = snap.docs.map((doc) => doc.data()).toList();
+        setState(() {
+          _transactions = list;
+          _loading = false;
+        });
+      });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // PhonePe style history
-    final dummyTransactions = [
-      {'name': 'Ramesh Patil', 'time': 'Today, 2:30 PM', 'coins': 150, 'rs': 15},
-      {'name': 'Suresh Kumar', 'time': 'Today, 11:15 AM', 'coins': 300, 'rs': 30},
-      {'name': 'Dinesh Singh', 'time': 'Yesterday, 5:45 PM', 'coins': 50, 'rs': 5},
-      {'name': 'Anil Sharma', 'time': 'Yesterday, 1:20 PM', 'coins': 420, 'rs': 42},
-      {'name': 'Prakash Rao', 'time': '21 Sep 2026, 9:00 AM', 'coins': 120, 'rs': 12},
-    ];
-
+    if (_loading) return const Center(child: CircularProgressIndicator());
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,27 +412,33 @@ class _HistoryView extends StatelessWidget {
             child: Text('Transaction History', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kDarkGreen)),
           ),
           Expanded(
-            child: ListView.builder(
+            child: _transactions.isEmpty ? const Center(child: Text("No transactions yet.")) : ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: dummyTransactions.length,
+              itemCount: _transactions.length,
               itemBuilder: (context, index) {
-                final tx = dummyTransactions[index];
+                final tx = _transactions[index];
+                final name = tx['sender_name'] ?? 'Unknown Farmer';
+                final coins = tx['amount_coins'] ?? 0;
+                final rs = tx['equivalent_inr'] ?? 0;
+                final ts = (tx['timestamp'] as Timestamp?)?.toDate();
+                final timeStr = ts != null ? '${ts.day}/${ts.month}/${ts.year} ${ts.hour}:${ts.minute.toString().padLeft(2, '0')}' : 'Unknown Time';
+
                 return Column(
                   children: [
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
                         backgroundColor: _kLightGreen,
-                        child: Text(tx['name'].toString().substring(0, 1), style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold)),
+                        child: Text(name.toString().substring(0, 1), style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold)),
                       ),
-                      title: Text(tx['name'].toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      subtitle: Text(tx['time'].toString(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      title: Text(name.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      subtitle: Text(timeStr, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('+${tx['coins']} 🌿', style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text('Value: ₹ ${tx['rs']}', style: const TextStyle(color: Colors.black54, fontSize: 11)),
+                          Text('+$coins 🌿', style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text('Value: ₹ $rs', style: const TextStyle(color: Colors.black54, fontSize: 11)),
                         ],
                       ),
                     ),

@@ -62,6 +62,18 @@ class AdminService extends ChangeNotifier {
   factory AdminService() => _instance;
   AdminService._internal() {
     _initDefaultData();
+    _listenToMarketPrices();
+  }
+
+  void _listenToMarketPrices() {
+    FirebaseFirestore.instance.collection('market_prices').snapshots().listen((snapshot) {
+      final items = snapshot.docs.map((doc) => MarketPriceItem.fromJson(doc.data(), doc.id)).toList();
+      if (items.isNotEmpty) {
+        _marketPrices.clear();
+        _marketPrices.addAll(items);
+        notifyListeners();
+      }
+    });
   }
 
   final List<MarketPriceItem> _marketPrices = [];

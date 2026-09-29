@@ -55,7 +55,8 @@ class Quiz {
       estimatedTime: json['estimatedTime'] ?? '2 Mins',
       questions: (json['questions'] as List? ?? [])
           .map((q) => Question.fromJson(q as Map<String, dynamic>))
-          .toList(),
+          .toList()
+          ..shuffle(),
     );
   }
 }

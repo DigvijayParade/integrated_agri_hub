@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:integrated_agri_hub/screens/role_selection_screen.dart';
 import 'package:integrated_agri_hub/screens/farmer_home_screen.dart';
 import 'package:integrated_agri_hub/screens/admin_home_screen.dart';
@@ -240,16 +241,52 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () {
+            onPressed: () async {
               final id = emailController.text.trim();
               final pwd = passwordController.text.trim();
               if ((id == 'admin@agrihub.gov.in' || id.toLowerCase().contains('admin') || id == 'GOV-ADMIN') &&
                   pwd == 'admin123') {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
-                );
+                
+                try {
+                  UserCredential? userCred;
+                  try {
+                    userCred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+                      email: 'admin@agrihub.gov.in',
+                      password: 'admin123',
+                    );
+                  } on FirebaseAuthException catch (e) {
+                    if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') {
+                      userCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                        email: 'admin@agrihub.gov.in',
+                        password: 'admin123',
+                      );
+                    } else {
+                      rethrow;
+                    }
+                  }
+                  
+                  if (userCred != null) {
+                    await FirebaseFirestore.instance.collection('users').doc(userCred.user!.uid).set({
+                      'role': 'admin',
+                      'email': 'admin@agrihub.gov.in',
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+                  }
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Admin Login Failed: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -710,10 +747,45 @@ class _LoginOverlayState extends State<_LoginOverlay> {
     if (!_formKey.currentState!.validate()) return;
 
     if (email == 'GOV-ADMIN') {
-      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
-        (_) => false,
-      );
+      try {
+        UserCredential? userCred;
+        try {
+          userCred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: 'admin@agrihub.gov.in',
+            password: 'admin123',
+          );
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') {
+            userCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+              email: 'admin@agrihub.gov.in',
+              password: 'admin123',
+            );
+          } else {
+            rethrow;
+          }
+        }
+        
+        if (userCred != null) {
+          await FirebaseFirestore.instance.collection('users').doc(userCred.user!.uid).set({
+            'role': 'admin',
+            'email': 'admin@agrihub.gov.in',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+            (_) => false,
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _error = 'Admin Auth Failed: $e';
+          _hasError = true;
+          _loading = false;
+        });
+      }
       return;
     }
 
